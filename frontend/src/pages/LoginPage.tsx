@@ -16,6 +16,7 @@ import {
 import { Activity, Mail, KeyRound, ArrowRight } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuthStore } from '../store/authStore';
+import { User } from '../types';
 
 export const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('admin@stockpulse.io');
@@ -49,7 +50,27 @@ export const LoginPage: React.FC = () => {
       login(token, profileRes.data);
       navigate('/');
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to authenticate');
+      // Fallback for Vercel static demo mode if API is unreachable
+      const demoAccount = demoAccounts.find(
+        (acc) => acc.email.toLowerCase() === email.toLowerCase() && acc.pass === password
+      );
+
+      if (demoAccount) {
+        const mockToken = `demo_jwt_token_${demoAccount.role.toLowerCase()}`;
+        const mockUser: User = {
+          id: demoAccount.role === 'Admin' ? 1 : demoAccount.role === 'Manager' ? 2 : demoAccount.role === 'Analyst' ? 3 : 4,
+          email: demoAccount.email,
+          full_name: `${demoAccount.role} User`,
+          role_name: demoAccount.role.toLowerCase() as any,
+          is_active: true,
+          last_login: new Date().toISOString(),
+          created_at: new Date().toISOString(),
+        };
+        login(mockToken, mockUser);
+        navigate('/');
+      } else {
+        setError(err.response?.data?.detail || 'Invalid email or password');
+      }
     } finally {
       setLoading(false);
     }
