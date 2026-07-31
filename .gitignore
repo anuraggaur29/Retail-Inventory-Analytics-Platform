@@ -1,0 +1,47 @@
+# Byte-compiled
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# Environment variables & secrets
+.env
+.env.*
+!.env.example
+
+# Local SQLite databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Large raw data files
+*.xlsx
+backend/data/*.csv
+!backend/data/.gitkeep
+zepto_v1.xlsx
+zepto_v2.csv
+
+# IDE & OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Build outputs & distributions
+dist/
+build/
+*.egg-info/
+*.egg
+frontend/dist/
+frontend/node_modules/
+node_modules/
+
+# Logs
+*.log
