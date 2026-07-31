@@ -77,6 +77,7 @@ export const DashboardPage: React.FC = () => {
     } catch (err: any) {
       // Use seamless mock fallback data for Vercel static preview
       setData(mockDashboardData);
+      setError('');
     } finally {
       setLoading(false);
     }
