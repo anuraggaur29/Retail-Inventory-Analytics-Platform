@@ -1,134 +1,113 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Box,
-  Card,
-  CardContent,
-  Typography,
-  TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  TablePagination,
-  Chip,
-  Skeleton,
-  InputAdornment,
-  Grid,
+  Box, Typography, TextField, FormControl, InputLabel, Select,
+  MenuItem, Table, TableBody, TableCell, TableContainer, TableHead,
+  TableRow, Paper, TablePagination, Chip, InputAdornment, Grid,
+  Card, CircularProgress, Alert,
 } from '@mui/material';
 import { Search } from 'lucide-react';
-import { api } from '../services/api';
-import { Product, Category, PaginatedMeta } from '../types';
+import { supabase, DBProduct, DBCategory } from '../lib/supabase';
 
 export const ProductsPage: React.FC = () => {
-  const mockProducts: Product[] = [
-    { id: 1, sku: 'FRU-0001', name: 'Fresh Shimla Apple 1kg', category_name: 'Fruits & Vegetables', mrp: 180, discount_percent: 15, selling_price: 153, weight_gms: 1000, quantity_desc: '1 kg', available_quantity: 120, is_out_of_stock: false },
-    { id: 2, sku: 'DAI-0002', name: 'Amul Taaza Toned Milk 1L', category_name: 'Dairy & Eggs', mrp: 70, discount_percent: 5, selling_price: 66.5, weight_gms: 1000, quantity_desc: '1 L', available_quantity: 85, is_out_of_stock: false },
-    { id: 3, sku: 'MNC-0003', name: 'Lays Magic Masala Chips 50g', category_name: 'Munchies & Snacks', mrp: 20, discount_percent: 10, selling_price: 18, weight_gms: 50, quantity_desc: '50 g', available_quantity: 0, is_out_of_stock: true },
-    { id: 4, sku: 'CLN-0004', name: 'Surf Excel Easy Wash Detergent 1kg', category_name: 'Cleaning Essentials', mrp: 140, discount_percent: 12, selling_price: 123.2, weight_gms: 1000, quantity_desc: '1 kg', available_quantity: 45, is_out_of_stock: false },
-    { id: 5, sku: 'DRK-0005', name: 'Coca-Cola Zero Sugar 750ml', category_name: 'Cold Drinks & Juices', mrp: 45, discount_percent: 10, selling_price: 40.5, weight_gms: 750, quantity_desc: '750 ml', available_quantity: 210, is_out_of_stock: false },
-  ];
+  const [products, setProducts] = useState<DBProduct[]>([]);
+  const [categories, setCategories] = useState<DBCategory[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const mockCategories: Category[] = [
-    { id: 1, name: 'Fruits & Vegetables', slug: 'fruits-veg', product_count: 480 },
-    { id: 2, name: 'Dairy & Eggs', slug: 'dairy-eggs', product_count: 350 },
-    { id: 3, name: 'Munchies & Snacks', slug: 'munchies', product_count: 510 },
-    { id: 4, name: 'Cold Drinks & Juices', slug: 'cold-drinks', product_count: 290 },
-    { id: 5, name: 'Cleaning Essentials', slug: 'cleaning', product_count: 210 },
-  ];
-
-  const [products, setProducts] = useState<Product[]>(mockProducts);
-  const [categories, setCategories] = useState<Category[]>(mockCategories);
-  const [meta, setMeta] = useState<PaginatedMeta>({ total: 3700, page: 1, page_size: 20, total_pages: 185 });
-  
+  const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<number | ''>('');
-  const [inStockOnly, setInStockOnly] = useState<string>('all');
-  const [page, setPage] = useState(0); // MUI TablePagination is 0-indexed
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | ''>('');
+  const [stockFilter, setStockFilter] = useState('all');
+  const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(20);
-  const [loading, setLoading] = useState(false);
 
-  const fetchCategories = async () => {
-    try {
-      const res = await api.get('/categories');
-      if (res.data && Array.isArray(res.data.data)) {
-        setCategories(res.data.data);
-      } else {
-        setCategories(mockCategories);
-      }
-    } catch (e) {
-      setCategories(mockCategories);
-    }
-  };
-
-  const fetchProducts = async () => {
-    setLoading(true);
-    try {
-      const params: any = { page: page + 1, page_size: rowsPerPage };
-      if (search) params.search = search;
-      if (selectedCategory) params.category_id = selectedCategory;
-      if (inStockOnly === 'true') params.in_stock = true;
-      if (inStockOnly === 'false') params.in_stock = false;
-
-      const res = await api.get('/products', { params });
-      if (res.data && Array.isArray(res.data.data)) {
-        setProducts(res.data.data);
-        if (res.data.meta) setMeta(res.data.meta);
-      } else {
-        setProducts(mockProducts);
-        setMeta({ total: 3700, page: page + 1, page_size: rowsPerPage, total_pages: 185 });
-      }
-    } catch (e) {
-      setProducts(mockProducts);
-      setMeta({ total: 3700, page: page + 1, page_size: rowsPerPage, total_pages: 185 });
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Load categories once
   useEffect(() => {
-    fetchCategories();
+    supabase
+      .from('categories')
+      .select('*')
+      .order('name')
+      .then(({ data, error }) => {
+        if (!error && data) setCategories(data);
+      });
   }, []);
 
+  // Load products whenever filters/page change — real SQL query via Supabase
   useEffect(() => {
+    const fetchProducts = async () => {
+      setLoading(true);
+      setError('');
+
+      // Build Supabase query (translates to SQL WHERE / ILIKE / ORDER BY / LIMIT / OFFSET)
+      let query = supabase
+        .from('products')
+        .select('*', { count: 'exact' });
+
+      if (search.trim()) {
+        // SQL: WHERE name ILIKE '%search%' OR sku ILIKE '%search%'
+        query = query.or(`name.ilike.%${search.trim()}%,sku.ilike.%${search.trim()}%`);
+      }
+      if (selectedCategoryId !== '') {
+        // SQL: WHERE category_id = ?
+        query = query.eq('category_id', selectedCategoryId);
+      }
+      if (stockFilter === 'in') {
+        // SQL: WHERE out_of_stock = false
+        query = query.eq('out_of_stock', false);
+      } else if (stockFilter === 'out') {
+        // SQL: WHERE out_of_stock = true
+        query = query.eq('out_of_stock', true);
+      }
+
+      // SQL: ORDER BY id LIMIT rowsPerPage OFFSET page*rowsPerPage
+      query = query
+        .order('id')
+        .range(page * rowsPerPage, page * rowsPerPage + rowsPerPage - 1);
+
+      const { data, error: err, count } = await query;
+
+      if (err) {
+        setError(err.message);
+      } else {
+        setProducts(data ?? []);
+        setTotalCount(count ?? 0);
+      }
+      setLoading(false);
+    };
+
     fetchProducts();
-  }, [page, rowsPerPage, selectedCategory, inStockOnly]);
+  }, [search, selectedCategoryId, stockFilter, page, rowsPerPage]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setSearch(searchInput);
     setPage(0);
-    fetchProducts();
   };
 
   return (
-    <Box sx={{ spaceY: 3 }}>
-      {/* Header */}
+    <Box>
       <Box sx={{ mb: 3 }}>
         <Typography variant="h5" sx={{ color: 'text.primary', fontWeight: 800 }}>
-          Product Catalog Search
+          Product Catalog
         </Typography>
         <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-          Search and filter across {meta.total.toLocaleString()} catalog SKUs
+          {loading ? 'Loading…' : `${totalCount.toLocaleString()} products in Supabase PostgreSQL`}
         </Typography>
       </Box>
 
-      {/* MUI Filter Controls Grid */}
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+
+      {/* Filters */}
       <Card elevation={0} sx={{ p: 2, mb: 3 }}>
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} md={6}>
             <Box component="form" onSubmit={handleSearchSubmit}>
               <TextField
-                fullWidth
-                size="small"
-                placeholder="Search product name or SKU..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                fullWidth size="small"
+                placeholder="Search product name or SKU… (press Enter)"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -144,12 +123,9 @@ export const ProductsPage: React.FC = () => {
             <FormControl fullWidth size="small">
               <InputLabel>Category</InputLabel>
               <Select
-                value={selectedCategory}
+                value={selectedCategoryId}
                 label="Category"
-                onChange={(e) => {
-                  setSelectedCategory(e.target.value as number | '');
-                  setPage(0);
-                }}
+                onChange={(e) => { setSelectedCategoryId(e.target.value as number | ''); setPage(0); }}
               >
                 <MenuItem value="">All Categories</MenuItem>
                 {categories.map((cat) => (
@@ -165,23 +141,20 @@ export const ProductsPage: React.FC = () => {
             <FormControl fullWidth size="small">
               <InputLabel>Stock Status</InputLabel>
               <Select
-                value={inStockOnly}
+                value={stockFilter}
                 label="Stock Status"
-                onChange={(e) => {
-                  setInStockOnly(e.target.value as string);
-                  setPage(0);
-                }}
+                onChange={(e) => { setStockFilter(e.target.value); setPage(0); }}
               >
                 <MenuItem value="all">All Availability</MenuItem>
-                <MenuItem value="true">In Stock Only</MenuItem>
-                <MenuItem value="false">Out of Stock Only</MenuItem>
+                <MenuItem value="in">In Stock Only</MenuItem>
+                <MenuItem value="out">Out of Stock Only</MenuItem>
               </Select>
             </FormControl>
           </Grid>
         </Grid>
       </Card>
 
-      {/* MUI Table Container */}
+      {/* Table */}
       <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid #1e293b', borderRadius: 3 }}>
         <Table size="small">
           <TableHead>
@@ -192,23 +165,22 @@ export const ProductsPage: React.FC = () => {
               <TableCell>MRP</TableCell>
               <TableCell>Discount</TableCell>
               <TableCell>Selling Price</TableCell>
-              <TableCell>Available Stock</TableCell>
+              <TableCell>Weight</TableCell>
+              <TableCell>Stock</TableCell>
               <TableCell>Status</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {loading ? (
-              [1, 2, 3, 4, 5].map((n) => (
-                <TableRow key={n}>
-                  <TableCell colSpan={8}>
-                    <Skeleton variant="text" height={30} />
-                  </TableCell>
-                </TableRow>
-              ))
+              <TableRow>
+                <TableCell colSpan={9} align="center" sx={{ py: 6 }}>
+                  <CircularProgress size={28} />
+                </TableCell>
+              </TableRow>
             ) : products.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} align="center" sx={{ py: 6, color: 'text.secondary' }}>
-                  No products matched search & filter criteria
+                <TableCell colSpan={9} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                  No products matched your filters
                 </TableCell>
               </TableRow>
             ) : (
@@ -217,25 +189,32 @@ export const ProductsPage: React.FC = () => {
                   <TableCell sx={{ fontFamily: 'monospace', color: 'text.secondary', fontSize: '0.75rem' }}>
                     {item.sku}
                   </TableCell>
-                  <TableCell sx={{ fontWeight: 600, color: 'text.primary' }}>{item.name}</TableCell>
-                  <TableCell sx={{ color: 'text.secondary' }}>{item.category_name}</TableCell>
-                  <TableCell sx={{ color: 'text.secondary', textDecoration: 'line-through' }}>
-                    ₹{item.mrp.toFixed(2)}
+                  <TableCell sx={{ fontWeight: 600, color: 'text.primary', maxWidth: 220 }}>
+                    {item.name}
                   </TableCell>
-                  <TableCell sx={{ color: 'primary.main', fontWeight: 700 }}>
+                  <TableCell sx={{ color: 'text.secondary', fontSize: '0.8rem' }}>
+                    {item.category}
+                  </TableCell>
+                  <TableCell sx={{ color: 'text.secondary', textDecoration: 'line-through', fontSize: '0.85rem' }}>
+                    ₹{Number(item.mrp).toFixed(2)}
+                  </TableCell>
+                  <TableCell sx={{ color: 'success.main', fontWeight: 700, fontSize: '0.85rem' }}>
                     {item.discount_percent}% OFF
                   </TableCell>
                   <TableCell sx={{ fontWeight: 700, color: 'text.primary' }}>
-                    ₹{item.selling_price.toFixed(2)}
+                    ₹{Number(item.selling_price).toFixed(2)}
                   </TableCell>
-                  <TableCell sx={{ fontFamily: 'monospace', color: 'text.primary' }}>
+                  <TableCell sx={{ color: 'text.secondary', fontSize: '0.8rem' }}>
+                    {item.weight_gms}g
+                  </TableCell>
+                  <TableCell sx={{ fontFamily: 'monospace' }}>
                     {item.available_quantity} units
                   </TableCell>
                   <TableCell>
                     <Chip
-                      label={item.is_out_of_stock ? 'OUT OF STOCK' : 'IN STOCK'}
+                      label={item.out_of_stock ? 'OUT OF STOCK' : 'IN STOCK'}
                       size="small"
-                      color={item.is_out_of_stock ? 'error' : 'success'}
+                      color={item.out_of_stock ? 'error' : 'success'}
                       variant="outlined"
                       sx={{ height: 20, fontSize: '0.65rem' }}
                     />
@@ -246,17 +225,13 @@ export const ProductsPage: React.FC = () => {
           </TableBody>
         </Table>
 
-        {/* MUI TablePagination */}
         <TablePagination
           component="div"
-          count={meta.total}
+          count={totalCount}
           page={page}
           onPageChange={(_, newPage) => setPage(newPage)}
           rowsPerPage={rowsPerPage}
-          onRowsPerPageChange={(e) => {
-            setRowsPerPage(parseInt(e.target.value, 10));
-            setPage(0);
-          }}
+          onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
           rowsPerPageOptions={[10, 20, 50, 100]}
           sx={{ borderTop: '1px solid #1e293b' }}
         />

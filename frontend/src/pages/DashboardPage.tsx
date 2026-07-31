@@ -1,312 +1,291 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Box,
-  Grid,
-  Card,
-  CardContent,
-  Typography,
-  Button,
-  Alert,
-  Skeleton,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  Chip,
+  Box, Grid, Card, CardContent, Typography, Chip,
+  Table, TableBody, TableCell, TableContainer, TableHead,
+  TableRow, Paper, CircularProgress,
 } from '@mui/material';
 import {
-  Package,
-  DollarSign,
-  AlertTriangle,
-  Percent,
-  Layers,
-  TrendingDown,
-  RefreshCcw,
+  Package, DollarSign, AlertTriangle, Percent, Layers, TrendingDown,
 } from 'lucide-react';
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip as RechartsTooltip,
-  ResponsiveContainer,
-  CartesianGrid,
+  BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip,
+  ResponsiveContainer, CartesianGrid,
 } from 'recharts';
-import { api } from '../services/api';
-import { DashboardSummary } from '../types';
+import { supabase } from '../lib/supabase';
 
+// ─── Types for aggregated SQL results ───────────────────────────────────────
+interface KPIs {
+  totalProducts: number;
+  totalCategories: number;
+  totalInventoryValue: number;
+  outOfStockCount: number;
+  outOfStockPct: number;
+  avgDiscount: number;
+  lowStockCount: number;
+}
+
+interface CategoryStat {
+  category: string;
+  product_count: number;
+  avg_discount: number;
+  out_of_stock_count: number;
+  total_value: number;
+}
+
+// ─── KPI Card ───────────────────────────────────────────────────────────────
+const KPICard: React.FC<{
+  title: string; value: string; subtitle: string;
+  icon: React.ReactNode; color: string;
+}> = ({ title, value, subtitle, icon, color }) => (
+  <Card elevation={0} sx={{ height: '100%' }}>
+    <CardContent>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+        <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>
+          {title}
+        </Typography>
+        <Box sx={{ color }}>{icon}</Box>
+      </Box>
+      <Typography variant="h4" sx={{ fontWeight: 800, color: 'text.primary', mb: 0.5 }}>
+        {value}
+      </Typography>
+      <Typography variant="caption" sx={{ color: 'text.secondary' }}>{subtitle}</Typography>
+    </CardContent>
+  </Card>
+);
+
+// ─── Main Dashboard ──────────────────────────────────────────────────────────
 export const DashboardPage: React.FC = () => {
-  const mockDashboardData: DashboardSummary = {
-    kpis: {
-      total_products: 3700,
-      total_categories: 11,
-      total_inventory_value: 8452000,
-      out_of_stock_percentage: 1.14,
-      avg_discount_percentage: 16.09,
-      low_stock_count: 128,
-    },
-    top_categories: [
-      { category_id: 1, category_name: 'Fruits & Vegetables', total_inventory_value: 1845000, product_count: 480, avg_mrp: 120, avg_discount: 15, out_of_stock_count: 5, rank_by_value: 1 },
-      { category_id: 2, category_name: 'Dairy & Eggs', total_inventory_value: 1520000, product_count: 350, avg_mrp: 90, avg_discount: 10, out_of_stock_count: 2, rank_by_value: 2 },
-      { category_id: 3, category_name: 'Munchies & Snacks', total_inventory_value: 1210000, product_count: 510, avg_mrp: 60, avg_discount: 12, out_of_stock_count: 8, rank_by_value: 3 },
-      { category_id: 4, category_name: 'Cold Drinks & Juices', total_inventory_value: 980000, product_count: 290, avg_mrp: 85, avg_discount: 18, out_of_stock_count: 3, rank_by_value: 4 },
-      { category_id: 5, category_name: 'Cleaning Essentials', total_inventory_value: 840000, product_count: 410, avg_mrp: 210, avg_discount: 22, out_of_stock_count: 4, rank_by_value: 5 },
-      { category_id: 6, category_name: 'Personal Care', total_inventory_value: 720000, product_count: 360, avg_mrp: 175, avg_discount: 20, out_of_stock_count: 6, rank_by_value: 6 },
-    ],
-    recent_price_changes: [
-      { id: 1, product_id: 101, product_name: 'Amul Taaza Toned Milk 1L', new_selling_price: 66.0, previous_price: 68.0, changed_at: new Date().toISOString(), change_reason: 'Promotional Discount' },
-      { id: 2, product_id: 102, product_name: 'Fortune Sunlite Sunflower Oil 1L', new_selling_price: 139.0, previous_price: 145.0, changed_at: new Date(Date.now() - 3600000).toISOString(), change_reason: 'MRP Adjustment' },
-      { id: 3, product_id: 103, product_name: 'Tata Salt Vacuum Evaporated 1kg', new_selling_price: 25.0, previous_price: 28.0, changed_at: new Date(Date.now() - 7200000).toISOString(), change_reason: 'Competitive Pricing' },
-      { id: 4, product_id: 104, product_name: 'Epigamia Greek Yogurt Blueberries 85g', new_selling_price: 55.0, previous_price: 60.0, changed_at: new Date(Date.now() - 14400000).toISOString(), change_reason: 'Flash Clearance' },
-    ],
-  };
-
-  const [data, setData] = useState<DashboardSummary>(mockDashboardData);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  const fetchDashboardData = async () => {
-    try {
-      const res = await api.get('/analytics/dashboard');
-      if (res.data && res.data.data && res.data.data.kpis) {
-        setData(res.data.data);
-      } else {
-        setData(mockDashboardData);
-      }
-    } catch (err: any) {
-      setData(mockDashboardData);
-    } finally {
-      setError('');
-      setLoading(false);
-    }
-  };
+  const [kpis, setKpis] = useState<KPIs | null>(null);
+  const [categoryStats, setCategoryStats] = useState<CategoryStat[]>([]);
+  const [outOfStockItems, setOutOfStockItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchDashboardData();
+    const fetchAll = async () => {
+      setLoading(true);
+
+      // ── SQL: SELECT COUNT(*), AVG(discount_percent), SUM(selling_price * available_quantity) FROM products
+      const [
+        { count: totalProducts },
+        { count: outOfStockCount },
+        { count: lowStockCount },
+        { count: totalCategories },
+        { data: allProducts },
+      ] = await Promise.all([
+        supabase.from('products').select('*', { count: 'exact', head: true }),
+        supabase.from('products').select('*', { count: 'exact', head: true }).eq('out_of_stock', true),
+        supabase.from('products').select('*', { count: 'exact', head: true }).eq('out_of_stock', false).lt('available_quantity', 5),
+        supabase.from('categories').select('*', { count: 'exact', head: true }),
+        supabase.from('products').select('selling_price, available_quantity, discount_percent'),
+      ]);
+
+      // Compute aggregates from fetched data (mirrors SQL GROUP BY / AVG / SUM)
+      const products = allProducts ?? [];
+      const totalValue = products.reduce((sum, p) => sum + (Number(p.selling_price) * p.available_quantity), 0);
+      const avgDisc = products.length ? products.reduce((sum, p) => sum + p.discount_percent, 0) / products.length : 0;
+
+      setKpis({
+        totalProducts: totalProducts ?? 0,
+        totalCategories: totalCategories ?? 0,
+        totalInventoryValue: totalValue,
+        outOfStockCount: outOfStockCount ?? 0,
+        outOfStockPct: totalProducts ? ((outOfStockCount ?? 0) / totalProducts) * 100 : 0,
+        avgDiscount: parseFloat(avgDisc.toFixed(1)),
+        lowStockCount: lowStockCount ?? 0,
+      });
+
+      // ── SQL: SELECT category, COUNT(*), AVG(discount_percent), SUM(selling_price*available_quantity)
+      //         FROM products GROUP BY category ORDER BY total_value DESC
+      const { data: catRaw } = await supabase
+        .from('products')
+        .select('category, selling_price, available_quantity, discount_percent, out_of_stock');
+
+      if (catRaw) {
+        const grouped: Record<string, CategoryStat> = {};
+        catRaw.forEach(p => {
+          if (!grouped[p.category]) {
+            grouped[p.category] = { category: p.category, product_count: 0, avg_discount: 0, out_of_stock_count: 0, total_value: 0 };
+          }
+          grouped[p.category].product_count++;
+          grouped[p.category].avg_discount += p.discount_percent;
+          grouped[p.category].total_value += Number(p.selling_price) * p.available_quantity;
+          if (p.out_of_stock) grouped[p.category].out_of_stock_count++;
+        });
+        const stats = Object.values(grouped).map(s => ({
+          ...s,
+          avg_discount: parseFloat((s.avg_discount / s.product_count).toFixed(1)),
+          total_value: parseFloat(s.total_value.toFixed(2)),
+        })).sort((a, b) => b.total_value - a.total_value);
+        setCategoryStats(stats);
+      }
+
+      // ── SQL: SELECT * FROM products WHERE out_of_stock = true ORDER BY name LIMIT 8
+      const { data: oos } = await supabase
+        .from('products')
+        .select('id, name, category, selling_price, available_quantity')
+        .eq('out_of_stock', true)
+        .order('name')
+        .limit(8);
+      setOutOfStockItems(oos ?? []);
+
+      setLoading(false);
+    };
+
+    fetchAll();
   }, []);
 
   if (loading) {
     return (
-      <Box sx={{ spaceY: 4 }}>
-        <Grid container spacing={3} sx={{ mb: 4 }}>
-          {[1, 2, 3, 4].map((n) => (
-            <Grid item xs={12} sm={6} md={3} key={n}>
-              <Skeleton variant="rounded" height={130} sx={{ bgcolor: 'background.paper' }} />
-            </Grid>
-          ))}
-        </Grid>
-        <Skeleton variant="rounded" height={320} sx={{ bgcolor: 'background.paper', mb: 4 }} />
-        <Skeleton variant="rounded" height={280} sx={{ bgcolor: 'background.paper' }} />
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 400, gap: 2 }}>
+        <CircularProgress size={32} />
+        <Typography color="text.secondary">Running SQL queries on Supabase…</Typography>
       </Box>
     );
   }
 
-  if (error || !data) {
-    return (
-      <Alert
-        severity="error"
-        action={
-          <Button color="inherit" size="small" onClick={fetchDashboardData}>
-            Retry
-          </Button>
-        }
-        sx={{ borderRadius: 3 }}
-      >
-        {error || 'No data available'}
-      </Alert>
-    );
-  }
+  const fmt = (n: number) => n.toLocaleString('en-IN');
+  const fmtCr = (n: number) => n >= 10000000 ? `₹${(n/10000000).toFixed(2)}Cr` : n >= 100000 ? `₹${(n/100000).toFixed(1)}L` : `₹${fmt(Math.round(n))}`;
 
-  const { kpis, top_categories, recent_price_changes } = data;
-
-  const kpiCards = [
-    {
-      title: 'Total SKU Catalog',
-      value: kpis.total_products.toLocaleString(),
-      subtext: `${kpis.total_categories} Active Categories`,
-      icon: Package,
-      color: '#38bdf8',
-      bg: 'rgba(56, 189, 248, 0.1)',
-    },
-    {
-      title: 'Total Inventory Valuation',
-      value: `₹${kpis.total_inventory_value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`,
-      subtext: 'Current Stock Selling Value',
-      icon: DollarSign,
-      color: '#10b981',
-      bg: 'rgba(16, 185, 129, 0.1)',
-    },
-    {
-      title: 'Out of Stock Rate',
-      value: `${kpis.out_of_stock_percentage}%`,
-      subtext: `${kpis.low_stock_count} Low Stock SKUs`,
-      icon: AlertTriangle,
-      color: '#f59e0b',
-      bg: 'rgba(245, 158, 11, 0.1)',
-    },
-    {
-      title: 'Average Discount',
-      value: `${Number(kpis.avg_discount_percentage).toFixed(2)}%`,
-      subtext: 'Across All Products',
-      icon: Percent,
-      color: '#c084fc',
-      bg: 'rgba(192, 132, 252, 0.1)',
-    },
-  ];
+  // Bar chart — top 8 categories by inventory value
+  const chartData = categoryStats.slice(0, 8).map(c => ({
+    name: c.category.length > 14 ? c.category.substring(0, 14) + '…' : c.category,
+    value: Math.round(c.total_value),
+    discount: c.avg_discount,
+  }));
 
   return (
-    <Box sx={{ spaceY: 4 }}>
-      {/* Top Bar Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justify: 'space-between', mb: 3 }}>
-        <Box>
-          <Typography variant="h5" sx={{ color: 'text.primary', fontWeight: 800 }}>
-            Executive Analytics Overview
-          </Typography>
-          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-            Real-time inventory metrics calculated directly in PostgreSQL
-          </Typography>
-        </Box>
-        <Button
-          variant="outlined"
-          color="inherit"
-          size="small"
-          startIcon={<RefreshCcw size={14} />}
-          onClick={fetchDashboardData}
-          sx={{ borderColor: '#1e293b', bgcolor: 'background.paper', color: 'text.secondary' }}
-        >
-          Refresh Analytics
-        </Button>
+    <Box>
+      {/* Header */}
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary' }}>
+          Executive Dashboard
+        </Typography>
+        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+          Real-time analytics — {kpis?.totalProducts.toLocaleString()} products from Supabase PostgreSQL
+        </Typography>
       </Box>
 
-      {/* MUI Grid KPI Cards */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        {kpiCards.map((card, idx) => {
-          const Icon = card.icon;
-          return (
-            <Grid item xs={12} sm={6} md={3} key={idx}>
-              <Card elevation={0}>
-                <CardContent sx={{ p: 2.5 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
-                    <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
-                      {card.title}
-                    </Typography>
-                    <Box sx={{ p: 1, borderRadius: 2, bgcolor: card.bg, display: 'flex' }}>
-                      <Icon size={20} color={card.color} />
-                    </Box>
-                  </Box>
-                  <Typography variant="h4" sx={{ fontWeight: 800, color: 'text.primary', mb: 0.5 }}>
-                    {card.value}
-                  </Typography>
-                  <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.7rem' }}>
-                    {card.subtext}
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-          );
-        })}
+      {/* KPI Cards */}
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid item xs={12} sm={6} md={4} lg={2}>
+          <KPICard title="Total SKUs" value={fmt(kpis?.totalProducts ?? 0)}
+            subtitle="Unique products" icon={<Package size={20} />} color="#6366f1" />
+        </Grid>
+        <Grid item xs={12} sm={6} md={4} lg={2}>
+          <KPICard title="Categories" value={String(kpis?.totalCategories ?? 0)}
+            subtitle="Product segments" icon={<Layers size={20} />} color="#06b6d4" />
+        </Grid>
+        <Grid item xs={12} sm={6} md={4} lg={2}>
+          <KPICard title="Inventory Value" value={fmtCr(kpis?.totalInventoryValue ?? 0)}
+            subtitle="Total stock value" icon={<DollarSign size={20} />} color="#10b981" />
+        </Grid>
+        <Grid item xs={12} sm={6} md={4} lg={2}>
+          <KPICard title="Out of Stock" value={fmt(kpis?.outOfStockCount ?? 0)}
+            subtitle={`${kpis?.outOfStockPct.toFixed(1)}% of catalog`}
+            icon={<AlertTriangle size={20} />} color="#ef4444" />
+        </Grid>
+        <Grid item xs={12} sm={6} md={4} lg={2}>
+          <KPICard title="Low Stock" value={fmt(kpis?.lowStockCount ?? 0)}
+            subtitle="< 5 units remaining" icon={<TrendingDown size={20} />} color="#f59e0b" />
+        </Grid>
+        <Grid item xs={12} sm={6} md={4} lg={2}>
+          <KPICard title="Avg Discount" value={`${kpis?.avgDiscount}%`}
+            subtitle="Across all products" icon={<Percent size={20} />} color="#8b5cf6" />
+        </Grid>
       </Grid>
 
-      {/* Category Valuation Bar Chart */}
-      <Card elevation={0} sx={{ p: 3, mb: 4 }}>
-        <Box sx={{ mb: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Layers size={18} color="#10b981" />
-            <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 700 }}>
-              Category Inventory Valuation Rank
-            </Typography>
-          </Box>
-          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-            Query uses <code style={{ color: '#10b981', fontFamily: 'monospace' }}>RANK() OVER (ORDER BY SUM(qty * price) DESC)</code>
+      {/* Bar Chart — Inventory Value by Category */}
+      <Grid container spacing={3} sx={{ mb: 3 }}>
+        <Grid item xs={12} lg={8}>
+          <Card elevation={0}>
+            <CardContent>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>
+                Inventory Value by Category
+              </Typography>
+              <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 2 }}>
+                SQL: SELECT category, SUM(selling_price * available_quantity) FROM products GROUP BY category ORDER BY 2 DESC
+              </Typography>
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={chartData} margin={{ top: 5, right: 10, left: 10, bottom: 60 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                  <XAxis dataKey="name" tick={{ fill: '#64748b', fontSize: 11 }}
+                    angle={-35} textAnchor="end" interval={0} />
+                  <YAxis tick={{ fill: '#64748b', fontSize: 11 }}
+                    tickFormatter={(v) => v >= 100000 ? `₹${(v/100000).toFixed(0)}L` : `₹${v}`} />
+                  <RechartsTooltip
+                    contentStyle={{ background: '#0f172a', border: '1px solid #334155' }}
+                    formatter={(val: number) => [`₹${val.toLocaleString('en-IN')}`, 'Inventory Value']}
+                  />
+                  <Bar dataKey="value" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Avg Discount by Category */}
+        <Grid item xs={12} lg={4}>
+          <Card elevation={0} sx={{ height: '100%' }}>
+            <CardContent>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>
+                Avg Discount by Category
+              </Typography>
+              <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 2 }}>
+                SQL: SELECT category, AVG(discount_percent) GROUP BY category
+              </Typography>
+              <Box sx={{ maxHeight: 280, overflowY: 'auto' }}>
+                {categoryStats.map((cat) => (
+                  <Box key={cat.category} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 0.8, borderBottom: '1px solid #1e293b' }}>
+                    <Typography variant="caption" sx={{ color: 'text.secondary', flex: 1 }}>
+                      {cat.category}
+                    </Typography>
+                    <Chip label={`${cat.avg_discount}% OFF`} size="small" color="success"
+                      variant="outlined" sx={{ height: 18, fontSize: '0.65rem' }} />
+                  </Box>
+                ))}
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
+      {/* Out of Stock Products Table */}
+      <Card elevation={0}>
+        <CardContent>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>
+            Out of Stock Alert — Products Needing Immediate Restock
           </Typography>
-        </Box>
-
-        <Box sx={{ height: 280, width: '100%', pt: 2 }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={top_categories} margin={{ top: 10, right: 10, left: 10, bottom: 25 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-              <XAxis
-                dataKey="category_name"
-                stroke="#64748b"
-                fontSize={11}
-                tickLine={false}
-                interval={0}
-                angle={-20}
-                textAnchor="end"
-              />
-              <YAxis
-                stroke="#64748b"
-                fontSize={11}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={(val) => `₹${(val / 1000).toFixed(0)}k`}
-              />
-              <RechartsTooltip
-                contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px' }}
-                itemStyle={{ color: '#38bdf8', fontSize: '12px' }}
-                formatter={(val: any) => [`₹${Number(val).toLocaleString()}`, 'Inventory Value']}
-                labelStyle={{ color: '#f8fafc', fontWeight: 600 }}
-              />
-              <Bar dataKey="total_inventory_value" fill="#10b981" radius={[6, 6, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </Box>
-      </Card>
-
-      {/* Historical Price Change Audit Trail Table */}
-      <Card elevation={0} sx={{ p: 3 }}>
-        <Box sx={{ mb: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <TrendingDown size={18} color="#c084fc" />
-            <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 700 }}>
-              Historical Price Change Audit Trail
-            </Typography>
-          </Box>
-          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-            Query uses <code style={{ color: '#c084fc', fontFamily: 'monospace' }}>LAG() OVER (PARTITION BY product_id ORDER BY changed_at)</code>
+          <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 2 }}>
+            SQL: SELECT * FROM products WHERE out_of_stock = true ORDER BY name LIMIT 8
           </Typography>
-        </Box>
-
-        <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid #1e293b', borderRadius: 2 }}>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Product Name</TableCell>
-                <TableCell>Previous Price</TableCell>
-                <TableCell>New Selling Price</TableCell>
-                <TableCell>Variance</TableCell>
-                <TableCell>Change Reason</TableCell>
-                <TableCell>Timestamp</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {recent_price_changes.map((item) => {
-                const diff = item.new_selling_price - item.previous_price;
-                return (
+          <TableContainer component={Paper} elevation={0}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Product Name</TableCell>
+                  <TableCell>Category</TableCell>
+                  <TableCell>Selling Price</TableCell>
+                  <TableCell>Available Qty</TableCell>
+                  <TableCell>Status</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {outOfStockItems.map((item) => (
                   <TableRow key={item.id} hover>
-                    <TableCell sx={{ fontWeight: 600, color: 'text.primary' }}>{item.product_name}</TableCell>
-                    <TableCell sx={{ color: 'text.secondary' }}>₹{item.previous_price.toFixed(2)}</TableCell>
-                    <TableCell sx={{ color: 'primary.main', fontWeight: 700 }}>₹{item.new_selling_price.toFixed(2)}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{item.name}</TableCell>
+                    <TableCell sx={{ color: 'text.secondary', fontSize: '0.8rem' }}>{item.category}</TableCell>
+                    <TableCell>₹{Number(item.selling_price).toFixed(2)}</TableCell>
+                    <TableCell sx={{ fontFamily: 'monospace' }}>{item.available_quantity}</TableCell>
                     <TableCell>
-                      <Chip
-                        label={diff > 0 ? `+₹${diff.toFixed(2)}` : `-₹${Math.abs(diff).toFixed(2)}`}
-                        size="small"
-                        color={diff <= 0 ? 'success' : 'error'}
-                        variant="outlined"
-                        sx={{ height: 20, fontSize: '0.65rem' }}
-                      />
+                      <Chip label="OUT OF STOCK" size="small" color="error"
+                        variant="outlined" sx={{ height: 20, fontSize: '0.65rem' }} />
                     </TableCell>
-                    <TableCell sx={{ color: 'text.secondary' }}>{item.change_reason || 'System Logged'}</TableCell>
-                    <TableCell sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>{new Date(item.changed_at).toLocaleString()}</TableCell>
                   </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </TableContainer>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </CardContent>
       </Card>
     </Box>
   );

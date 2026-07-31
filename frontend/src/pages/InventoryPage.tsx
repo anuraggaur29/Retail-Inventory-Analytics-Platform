@@ -1,202 +1,164 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Box,
-  Card,
-  Typography,
-  Alert,
-  Button,
-  Chip,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TablePagination,
-  Paper,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  Snackbar,
-  Grid,
+  Box, Card, Typography, Alert, Button, Chip,
+  Table, TableBody, TableCell, TableContainer, TableHead,
+  TableRow, TablePagination, Paper, Dialog, DialogTitle,
+  DialogContent, DialogActions, TextField, Snackbar,
+  Grid, FormControl, InputLabel, Select, MenuItem, CircularProgress,
 } from '@mui/material';
-import { AlertTriangle, Boxes, Plus, CheckCircle } from 'lucide-react';
-import { api } from '../services/api';
-import { InventoryItem, StockAlert, PaginatedMeta } from '../types';
+import { AlertTriangle, Boxes, Plus } from 'lucide-react';
+import { supabase, DBProduct } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
 
 export const InventoryPage: React.FC = () => {
   const { user } = useAuthStore();
 
-  const mockInventoryItems: InventoryItem[] = [
-    { product_id: 1, product_name: 'Fresh Shimla Apple 1kg', sku: 'FRU-0001', category_name: 'Fruits & Vegetables', available_quantity: 120, reorder_level: 15, is_out_of_stock: false, stock_status: 'Normal', selling_price: 153, inventory_value: 18360, last_restocked_at: new Date().toISOString() },
-    { product_id: 2, product_name: 'Amul Taaza Toned Milk 1L', sku: 'DAI-0002', category_name: 'Dairy & Eggs', available_quantity: 8, reorder_level: 10, is_out_of_stock: false, stock_status: 'Low', selling_price: 66.5, inventory_value: 532, last_restocked_at: new Date().toISOString() },
-    { product_id: 3, product_name: 'Lays Magic Masala Chips 50g', sku: 'MNC-0003', category_name: 'Munchies & Snacks', available_quantity: 0, reorder_level: 20, is_out_of_stock: true, stock_status: 'Critical', selling_price: 18, inventory_value: 0, last_restocked_at: new Date(Date.now() - 86400000).toISOString() },
-    { product_id: 4, product_name: 'Surf Excel Easy Wash Detergent 1kg', sku: 'CLN-0004', category_name: 'Cleaning Essentials', available_quantity: 180, reorder_level: 25, is_out_of_stock: false, stock_status: 'Overstocked', selling_price: 123.2, inventory_value: 22176, last_restocked_at: new Date().toISOString() },
-  ];
-
-  const mockAlerts: StockAlert[] = [
-    { product_id: 3, product_name: 'Lays Magic Masala Chips 50g', sku: 'MNC-0003', category_name: 'Munchies & Snacks', available_quantity: 0, reorder_level: 20, alert_type: 'OUT_OF_STOCK', selling_price: 18 },
-    { product_id: 2, product_name: 'Amul Taaza Toned Milk 1L', sku: 'DAI-0002', category_name: 'Dairy & Eggs', available_quantity: 8, reorder_level: 10, alert_type: 'LOW_STOCK', selling_price: 66.5 },
-  ];
-
-  const [inventory, setInventory] = useState<InventoryItem[]>(mockInventoryItems);
-  const [alerts, setAlerts] = useState<StockAlert[]>(mockAlerts);
-  const [meta, setMeta] = useState<PaginatedMeta>({ total: 3700, page: 1, page_size: 20, total_pages: 185 });
-  const [statusFilter, setStatusFilter] = useState<string>('');
-  const [page, setPage] = useState(0); // MUI TablePagination 0-indexed
+  const [inventory, setInventory] = useState<DBProduct[]>([]);
+  const [lowStockItems, setLowStockItems] = useState<DBProduct[]>([]);
+  const [outOfStockItems, setOutOfStockItems] = useState<DBProduct[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState('');
+  const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(20);
-  const [loading, setLoading] = useState(false);
-  const [restockProduct, setRestockProduct] = useState<InventoryItem | null>(null);
+
+  const [restockProduct, setRestockProduct] = useState<DBProduct | null>(null);
   const [restockQty, setRestockQty] = useState(50);
   const [snackbarMsg, setSnackbarMsg] = useState('');
 
-  const fetchAlerts = async () => {
-    try {
-      const res = await api.get('/inventory/alerts');
-      if (res.data && Array.isArray(res.data.data)) {
-        setAlerts(res.data.data);
-      } else {
-        setAlerts(mockAlerts);
-      }
-    } catch (e) {
-      setAlerts(mockAlerts);
-    }
-  };
-
-  const fetchInventory = async () => {
-    setLoading(true);
-    try {
-      const params: any = { page: page + 1, page_size: rowsPerPage };
-      if (statusFilter) params.stock_status = statusFilter;
-
-      const res = await api.get('/inventory', { params });
-      if (res.data && Array.isArray(res.data.data)) {
-        setInventory(res.data.data);
-        if (res.data.meta) setMeta(res.data.meta);
-      } else {
-        setInventory(mockInventoryItems);
-        setMeta({ total: 3700, page: page + 1, page_size: rowsPerPage, total_pages: 185 });
-      }
-    } catch (e) {
-      setInventory(mockInventoryItems);
-      setMeta({ total: 3700, page: page + 1, page_size: rowsPerPage, total_pages: 185 });
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // SQL: SELECT * FROM products WHERE out_of_stock = true (for alerts panel)
   useEffect(() => {
-    fetchAlerts();
+    supabase
+      .from('products')
+      .select('*')
+      .eq('out_of_stock', true)
+      .order('name')
+      .limit(10)
+      .then(({ data }) => setOutOfStockItems(data ?? []));
+
+    // SQL: SELECT * FROM products WHERE available_quantity < 5 AND out_of_stock = false
+    supabase
+      .from('products')
+      .select('*')
+      .eq('out_of_stock', false)
+      .lt('available_quantity', 5)
+      .order('available_quantity')
+      .limit(10)
+      .then(({ data }) => setLowStockItems(data ?? []));
   }, []);
 
+  // SQL: SELECT * FROM products [WHERE out_of_stock = ?] ORDER BY id LIMIT ? OFFSET ?
   useEffect(() => {
-    fetchInventory();
-  }, [page, rowsPerPage, statusFilter]);
+    const fetchInventory = async () => {
+      setLoading(true);
+      let query = supabase
+        .from('products')
+        .select('*', { count: 'exact' });
 
-  const handleRestockSubmit = async (e: React.FormEvent) => {
+      if (statusFilter === 'out') query = query.eq('out_of_stock', true);
+      else if (statusFilter === 'low') query = query.eq('out_of_stock', false).lt('available_quantity', 5);
+      else if (statusFilter === 'in') query = query.eq('out_of_stock', false).gte('available_quantity', 5);
+
+      const { data, count } = await query
+        .order('id')
+        .range(page * rowsPerPage, page * rowsPerPage + rowsPerPage - 1);
+
+      setInventory(data ?? []);
+      setTotalCount(count ?? 0);
+      setLoading(false);
+    };
+    fetchInventory();
+  }, [statusFilter, page, rowsPerPage]);
+
+  const handleRestock = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!restockProduct) return;
+    const newQty = restockProduct.available_quantity + restockQty;
 
-    try {
-      const res = await api.post(`/inventory/${restockProduct.product_id}/restock`, {
-        quantity: restockQty,
-      });
+    // SQL: UPDATE products SET available_quantity = ?, out_of_stock = false WHERE id = ?
+    const { error } = await supabase
+      .from('products')
+      .update({ available_quantity: newQty, out_of_stock: false })
+      .eq('id', restockProduct.id);
 
-      setSnackbarMsg(res.data.data.message);
+    if (!error) {
+      setSnackbarMsg(`✅ Restocked "${restockProduct.name}" with ${restockQty} units`);
       setRestockProduct(null);
-      fetchInventory();
-      fetchAlerts();
-    } catch (err: any) {
-      alert(err.response?.data?.detail || 'Failed to restock');
+      // Refresh
+      setPage(p => p); // trigger re-fetch
     }
   };
 
-  const isManagerOrAdmin = user?.role_name === 'admin' || user?.role_name === 'manager';
-
-  const statusChipColor = (status: string): 'error' | 'warning' | 'secondary' | 'success' | 'default' => {
-    switch (status) {
-      case 'Critical':
-        return 'error';
-      case 'Low':
-        return 'warning';
-      case 'Overstocked':
-        return 'secondary';
-      default:
-        return 'success';
-    }
+  const getStockStatus = (item: DBProduct) => {
+    if (item.out_of_stock || item.available_quantity === 0) return { label: 'OUT OF STOCK', color: 'error' as const };
+    if (item.available_quantity < 5) return { label: 'LOW STOCK', color: 'warning' as const };
+    if (item.available_quantity > 100) return { label: 'OVERSTOCKED', color: 'info' as const };
+    return { label: 'NORMAL', color: 'success' as const };
   };
 
   return (
-    <Box sx={{ spaceY: 3 }}>
-      {/* Header */}
+    <Box>
       <Box sx={{ mb: 3 }}>
         <Typography variant="h5" sx={{ color: 'text.primary', fontWeight: 800 }}>
-          Inventory Health & Stock Control
+          Inventory Management
         </Typography>
         <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-          Stock status classified in SQL via <code style={{ color: '#10b981', fontFamily: 'monospace' }}>CASE WHEN available_quantity = 0 THEN 'Critical'</code>
+          Live data from Supabase PostgreSQL — {totalCount.toLocaleString()} SKUs tracked
         </Typography>
       </Box>
 
-      {/* Stock Alert Alert Feed */}
-      {alerts.length > 0 && (
-        <Alert
-          severity="warning"
-          icon={<AlertTriangle size={20} />}
-          sx={{ mb: 3, borderRadius: 3, bgcolor: 'rgba(245, 158, 11, 0.08)', borderColor: 'rgba(245, 158, 11, 0.2)', borderWidth: 1, borderStyle: 'solid' }}
-        >
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-            Stock Alert Feed ({alerts.length} Items Require Reorder Attention)
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 1.5, overflowX: 'auto', pb: 0.5 }}>
-            {alerts.slice(0, 5).map((item) => (
-              <Paper
-                key={item.product_id}
-                elevation={0}
-                sx={{
-                  p: 1.5,
-                  minWidth: 210,
-                  bgcolor: 'background.paper',
-                  border: '1px solid #1e293b',
-                  borderRadius: 2,
-                }}
-              >
-                <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {item.product_name}
-                </Typography>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 0.5 }}>
-                  <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.7rem' }}>
-                    Qty: <strong style={{ color: '#f43f5e' }}>{item.available_quantity}</strong> / {item.reorder_level}
-                  </Typography>
-                  <Chip label={item.alert_type} size="small" color="warning" variant="outlined" sx={{ height: 16, fontSize: '0.6rem' }} />
-                </Box>
-              </Paper>
+      {/* Stock Alert Cards */}
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid item xs={12} sm={6}>
+          <Card elevation={0} sx={{ p: 2, border: '1px solid #dc2626', borderRadius: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+              <AlertTriangle size={18} color="#dc2626" />
+              <Typography variant="subtitle2" sx={{ color: '#dc2626', fontWeight: 700 }}>
+                Out of Stock ({outOfStockItems.length}+)
+              </Typography>
+            </Box>
+            {outOfStockItems.slice(0, 4).map(item => (
+              <Typography key={item.id} variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
+                • {item.name} — {item.category}
+              </Typography>
             ))}
-          </Box>
-        </Alert>
-      )}
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6}>
+          <Card elevation={0} sx={{ p: 2, border: '1px solid #f59e0b', borderRadius: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+              <AlertTriangle size={18} color="#f59e0b" />
+              <Typography variant="subtitle2" sx={{ color: '#f59e0b', fontWeight: 700 }}>
+                Low Stock &lt;5 units ({lowStockItems.length}+)
+              </Typography>
+            </Box>
+            {lowStockItems.slice(0, 4).map(item => (
+              <Typography key={item.id} variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
+                • {item.name} — {item.available_quantity} left
+              </Typography>
+            ))}
+          </Card>
+        </Grid>
+      </Grid>
 
-      {/* Status Filter Chips */}
-      <Box sx={{ display: 'flex', gap: 1, mb: 3 }}>
-        {['', 'Critical', 'Low', 'Normal', 'Overstocked'].map((st) => (
-          <Chip
-            key={st}
-            label={st === '' ? 'All Statuses' : st}
-            onClick={() => {
-              setStatusFilter(st);
-              setPage(0);
-            }}
-            color={statusFilter === st ? 'primary' : 'default'}
-            variant={statusFilter === st ? 'filled' : 'outlined'}
-            sx={{ cursor: 'pointer' }}
-          />
-        ))}
-      </Box>
+      {/* Filter */}
+      <Card elevation={0} sx={{ p: 2, mb: 3 }}>
+        <FormControl size="small" sx={{ minWidth: 220 }}>
+          <InputLabel>Stock Status Filter</InputLabel>
+          <Select
+            value={statusFilter}
+            label="Stock Status Filter"
+            onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }}
+          >
+            <MenuItem value="">All Products</MenuItem>
+            <MenuItem value="in">In Stock (≥5 units)</MenuItem>
+            <MenuItem value="low">Low Stock (&lt;5 units)</MenuItem>
+            <MenuItem value="out">Out of Stock</MenuItem>
+          </Select>
+        </FormControl>
+      </Card>
 
-      {/* MUI Inventory Table */}
+      {/* Inventory Table */}
       <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid #1e293b', borderRadius: 3 }}>
         <Table size="small">
           <TableHead>
@@ -204,143 +166,98 @@ export const InventoryPage: React.FC = () => {
               <TableCell>SKU</TableCell>
               <TableCell>Product Name</TableCell>
               <TableCell>Category</TableCell>
-              <TableCell>Stock Status</TableCell>
-              <TableCell>Available Quantity</TableCell>
-              <TableCell>Reorder Level</TableCell>
-              <TableCell>Inventory Valuation</TableCell>
-              {isManagerOrAdmin && <TableCell align="right">Actions</TableCell>}
+              <TableCell>Selling Price</TableCell>
+              <TableCell>Available Qty</TableCell>
+              <TableCell>Inventory Value</TableCell>
+              <TableCell>Status</TableCell>
+              {user?.role_name !== 'analyst' && user?.role_name !== 'viewer' && (
+                <TableCell>Action</TableCell>
+              )}
             </TableRow>
           </TableHead>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={8} align="center" sx={{ py: 6, color: 'text.secondary' }}>
-                  Loading inventory status data...
+                <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
+                  <CircularProgress size={28} />
                 </TableCell>
               </TableRow>
             ) : (
-              inventory.map((item) => (
-                <TableRow key={item.product_id} hover>
-                  <TableCell sx={{ fontFamily: 'monospace', color: 'text.secondary', fontSize: '0.75rem' }}>
-                    {item.sku}
-                  </TableCell>
-                  <TableCell sx={{ fontWeight: 600, color: 'text.primary' }}>{item.product_name}</TableCell>
-                  <TableCell sx={{ color: 'text.secondary' }}>{item.category_name}</TableCell>
-                  <TableCell>
-                    <Chip
-                      label={item.stock_status}
-                      size="small"
-                      color={statusChipColor(item.stock_status)}
-                      variant="outlined"
-                      sx={{ height: 20, fontSize: '0.65rem' }}
-                    />
-                  </TableCell>
-                  <TableCell sx={{ fontWeight: 700, color: 'text.primary' }}>{item.available_quantity} units</TableCell>
-                  <TableCell sx={{ color: 'text.secondary' }}>{item.reorder_level} units</TableCell>
-                  <TableCell sx={{ color: 'primary.main', fontWeight: 700 }}>
-                    ₹{item.inventory_value.toLocaleString()}
-                  </TableCell>
-                  {isManagerOrAdmin && (
-                    <TableCell align="right">
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        color="primary"
-                        startIcon={<Plus size={14} />}
-                        onClick={() => setRestockProduct(item)}
-                        sx={{ height: 26, fontSize: '0.7rem' }}
-                      >
-                        Restock
-                      </Button>
+              inventory.map((item) => {
+                const status = getStockStatus(item);
+                const value = (Number(item.selling_price) * item.available_quantity).toFixed(2);
+                return (
+                  <TableRow key={item.id} hover>
+                    <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.75rem', color: 'text.secondary' }}>
+                      {item.sku}
                     </TableCell>
-                  )}
-                </TableRow>
-              ))
+                    <TableCell sx={{ fontWeight: 600, maxWidth: 200 }}>{item.name}</TableCell>
+                    <TableCell sx={{ color: 'text.secondary', fontSize: '0.8rem' }}>{item.category}</TableCell>
+                    <TableCell>₹{Number(item.selling_price).toFixed(2)}</TableCell>
+                    <TableCell sx={{ fontFamily: 'monospace', fontWeight: 700 }}>
+                      {item.available_quantity}
+                    </TableCell>
+                    <TableCell sx={{ color: 'primary.main', fontWeight: 600 }}>
+                      ₹{Number(value).toLocaleString('en-IN')}
+                    </TableCell>
+                    <TableCell>
+                      <Chip label={status.label} size="small" color={status.color}
+                        variant="outlined" sx={{ height: 20, fontSize: '0.65rem' }} />
+                    </TableCell>
+                    {user?.role_name !== 'analyst' && user?.role_name !== 'viewer' && (
+                      <TableCell>
+                        <Button size="small" variant="outlined" startIcon={<Plus size={12} />}
+                          onClick={() => { setRestockProduct(item); setRestockQty(50); }}
+                          sx={{ fontSize: '0.7rem', py: 0.3 }}>
+                          Restock
+                        </Button>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>
 
         <TablePagination
           component="div"
-          count={meta.total}
+          count={totalCount}
           page={page}
-          onPageChange={(_, newPage) => setPage(newPage)}
+          onPageChange={(_, p) => setPage(p)}
           rowsPerPage={rowsPerPage}
-          onRowsPerPageChange={(e) => {
-            setRowsPerPage(parseInt(e.target.value, 10));
-            setPage(0);
-          }}
+          onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
           rowsPerPageOptions={[10, 20, 50, 100]}
           sx={{ borderTop: '1px solid #1e293b' }}
         />
       </TableContainer>
 
-      {/* MUI Restock Dialog */}
-      <Dialog
-        open={!!restockProduct}
-        onClose={() => setRestockProduct(null)}
-        maxWidth="xs"
-        fullWidth
-      >
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <Boxes size={22} color="#10b981" />
-          <Box>
-            <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 700 }}>
-              Restock Product Stock
-            </Typography>
-            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-              {restockProduct?.product_name}
-            </Typography>
-          </Box>
-        </DialogTitle>
-        <Box component="form" onSubmit={handleRestockSubmit}>
-          <DialogContent dividers>
+      {/* Restock Dialog */}
+      <Dialog open={!!restockProduct} onClose={() => setRestockProduct(null)}>
+        <DialogTitle>Restock: {restockProduct?.name}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary' }}>
+            Current stock: <strong>{restockProduct?.available_quantity} units</strong>
+          </Typography>
+          <Box component="form" onSubmit={handleRestock}>
             <TextField
-              fullWidth
-              label="Add Stock Quantity"
-              type="number"
+              fullWidth label="Units to Add" type="number"
               value={restockQty}
-              onChange={(e) => setRestockQty(Number(e.target.value))}
-              inputProps={{ min: 1 }}
-              size="small"
-              sx={{ mb: 2 }}
+              onChange={(e) => setRestockQty(parseInt(e.target.value, 10))}
+              inputProps={{ min: 1, max: 10000 }}
             />
-            <Paper elevation={0} sx={{ p: 2, bgcolor: 'background.default', border: '1px solid #1e293b' }}>
-              <Box sx={{ display: 'flex', justify: 'space-between', mb: 1 }}>
-                <Typography variant="caption" sx={{ color: 'text.secondary' }}>Current Quantity:</Typography>
-                <Typography variant="caption" sx={{ fontWeight: 700 }}>{restockProduct?.available_quantity}</Typography>
-              </Box>
-              <Box sx={{ display: 'flex', justify: 'space-between' }}>
-                <Typography variant="caption" sx={{ color: 'text.secondary' }}>Post-Restock Quantity:</Typography>
-                <Typography variant="caption" sx={{ fontWeight: 700, color: 'primary.main' }}>
-                  {(restockProduct?.available_quantity || 0) + restockQty}
-                </Typography>
-              </Box>
-            </Paper>
-          </DialogContent>
-          <DialogActions sx={{ p: 2 }}>
-            <Button onClick={() => setRestockProduct(null)} color="inherit">
-              Cancel
-            </Button>
-            <Button type="submit" variant="contained" color="primary">
-              Confirm Restock
-            </Button>
-          </DialogActions>
-        </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRestockProduct(null)}>Cancel</Button>
+          <Button variant="contained" onClick={handleRestock}>
+            Add {restockQty} Units
+          </Button>
+        </DialogActions>
       </Dialog>
 
-      {/* MUI Success Snackbar Notification */}
-      <Snackbar
-        open={!!snackbarMsg}
-        autoHideDuration={4000}
-        onClose={() => setSnackbarMsg('')}
-        message={snackbarMsg}
-        action={
-          <Button color="primary" size="small" onClick={() => setSnackbarMsg('')}>
-            OK
-          </Button>
-        }
-      />
+      <Snackbar open={!!snackbarMsg} autoHideDuration={4000}
+        onClose={() => setSnackbarMsg('')} message={snackbarMsg} />
     </Box>
   );
 };
