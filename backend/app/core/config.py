@@ -34,7 +34,7 @@ class Settings(BaseSettings):
 
     # Application
     APP_NAME: str = "StockPulse"
-    APP_VERSION: str = "1.0.0"
+    APP_VERSION: str = "1.0.1"
     DEBUG: bool = False
 
     # CORS
