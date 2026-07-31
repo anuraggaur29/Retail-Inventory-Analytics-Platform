@@ -25,10 +25,10 @@ class Settings(BaseSettings):
     """
 
     # Database
-    DATABASE_URL: str
+    DATABASE_URL: str = "sqlite:///./stockpulse.db"
 
     # JWT Authentication
-    JWT_SECRET_KEY: str
+    JWT_SECRET_KEY: str = "stockpulse-serverless-jwt-secret-key-2026"
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
