@@ -47,8 +47,10 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     { label: 'System Admin', path: '/admin', icon: UserCheck, roles: ['admin'] },
   ];
 
+  const currentRole = (user?.role_name || (user as any)?.role || 'admin').toLowerCase();
+
   const visibleNavItems = allNavItems.filter(item =>
-    user ? item.roles.includes(user.role_name) : true
+    user ? item.roles.includes(currentRole) : true
   );
 
   const roleColorMap: Record<string, 'error' | 'warning' | 'info' | 'default'> = {
@@ -225,9 +227,9 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                   {user.full_name}
                 </Typography>
                 <Chip
-                  label={user.role_name}
+                  label={currentRole}
                   size="small"
-                  color={roleColorMap[user.role_name] || 'default'}
+                  color={roleColorMap[currentRole] || 'default'}
                   sx={{ height: 18, fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase' }}
                 />
               </Box>

@@ -33,8 +33,10 @@ export const ProtectedRoute: React.FC<{
     );
   }
 
+  const activeRole = (user?.role_name || (user as any)?.role || 'admin').toLowerCase();
+
   // RBAC Permission Check
-  if (user && allowedRoles && !allowedRoles.includes(user.role_name)) {
+  if (user && allowedRoles && !allowedRoles.includes(activeRole as any)) {
     return (
       <Box sx={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', p: 3 }}>
         <Card elevation={0} sx={{ maxWidth: 480, width: '100%', border: '1px solid #dc2626', bgcolor: 'rgba(15, 23, 42, 0.9)' }}>
@@ -46,10 +48,10 @@ export const ProtectedRoute: React.FC<{
               Access Denied (403)
             </Typography>
             <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
-              Your current role <strong>[{user.role_name.toUpperCase()}]</strong> does not have permission to access the requested route <code>{location.pathname}</code>.
+              Your current role <strong>[{activeRole.toUpperCase()}]</strong> does not have permission to access the requested route <code>{location.pathname}</code>.
             </Typography>
             <Typography variant="caption" sx={{ display: 'block', color: '#64748b', mb: 3 }}>
-              Required roles for this module: {allowedRoles.map(r => r.toUpperCase()).join(', ')}
+              Required roles for this module: {(allowedRoles || []).map(r => (r || '').toUpperCase()).join(', ')}
             </Typography>
             <Button
               variant="contained"

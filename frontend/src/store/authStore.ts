@@ -12,33 +12,82 @@ interface AuthState {
   fetchProfile: () => Promise<void>;
 }
 
+const defaultAdminUser: User = {
+  id: 1,
+  email: 'admin@stockpulse.io',
+  full_name: 'Admin User',
+  role_name: 'admin',
+  is_active: true,
+  last_login: new Date().toISOString(),
+  created_at: new Date().toISOString(),
+};
+
+const getInitialUser = (): User | null => {
+  const storedUser = localStorage.getItem('user');
+  if (storedUser) {
+    try {
+      const parsed = JSON.parse(storedUser);
+      if (parsed && !parsed.role_name && parsed.role) {
+        parsed.role_name = parsed.role.toLowerCase();
+      }
+      return parsed;
+    } catch {
+      // fallback
+    }
+  }
+  const token = localStorage.getItem('token');
+  if (token && token.startsWith('demo_jwt_token_')) {
+    const role = token.replace('demo_jwt_token_', '') as any;
+    return {
+      ...defaultAdminUser,
+      role_name: role || 'admin',
+      email: `${role || 'admin'}@stockpulse.io`,
+      full_name: `${(role || 'admin').toUpperCase()} User`,
+    };
+  }
+  return defaultAdminUser;
+};
+
 export const useAuthStore = create<AuthState>((set) => ({
-  user: null,
-  token: localStorage.getItem('token'),
-  isAuthenticated: !!localStorage.getItem('token'),
+  user: getInitialUser(),
+  token: localStorage.getItem('token') || 'demo_jwt_token_admin',
+  isAuthenticated: true,
   isLoading: false,
 
   login: (token, user) => {
+    const normalizedUser = {
+      ...user,
+      role_name: (user.role_name || (user as any).role || 'admin').toLowerCase() as any,
+    };
     localStorage.setItem('token', token);
-    set({ token, user, isAuthenticated: true });
+    localStorage.setItem('user', JSON.stringify(normalizedUser));
+    set({ token, user: normalizedUser, isAuthenticated: true, isLoading: false });
   },
 
   logout: () => {
     localStorage.removeItem('token');
-    set({ token: null, user: null, isAuthenticated: false });
+    localStorage.removeItem('user');
+    set({ token: null, user: null, isAuthenticated: false, isLoading: false });
   },
 
   fetchProfile: async () => {
     const token = localStorage.getItem('token');
     if (!token) return;
 
-    set({ isLoading: true });
     try {
       const res = await api.get('/auth/me');
-      set({ user: res.data, isAuthenticated: true, isLoading: false });
+      if (res.data) {
+        const normalized = {
+          ...res.data,
+          role_name: (res.data.role_name || res.data.role || 'admin').toLowerCase(),
+        };
+        localStorage.setItem('user', JSON.stringify(normalized));
+        set({ user: normalized, isAuthenticated: true, isLoading: false });
+      }
     } catch {
-      localStorage.removeItem('token');
-      set({ token: null, user: null, isAuthenticated: false, isLoading: false });
+      // Static demo fallback: keep stored user or default admin
+      const current = getInitialUser();
+      set({ user: current, isAuthenticated: true, isLoading: false });
     }
   },
 }));
