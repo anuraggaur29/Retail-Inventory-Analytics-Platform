@@ -1,50 +1,82 @@
-# 🚀 00: Start Here — The StockPulse Master Handbook Roadmap
+# 00 START HERE — Engineering Handbook Map
 
-## 1. Objective
-Welcome to the official **Engineering & Interview Handbook** for **StockPulse**!
-This guide is designed for you to master the entire system in **one day** so you can defend every architecture, database, API, and frontend decision in SDE / Backend interviews.
-
----
-
-## 2. Big Picture
-StockPulse is an internal dark-store analytics engine modeled after quick-commerce platforms like Zepto, Blinkit, and Swiggy Instamart. It manages **3,700 real-world SKUs** across 11 normalized categories, enabling real-time stock monitoring, pricing audit logs, category valuation rankings, and restocking workflows.
+## Objective
+This document serves as your onboarding sitemap and reading plan for the **StockPulse Retail Inventory Analytics Platform** engineering handbook. It establishes your study roadmap to master every architectural, database, API, security, and deployment decision in this codebase for software engineering interviews.
 
 ---
 
-## 3. Handbook Module Reading Order
+## Big Picture
+StockPulse is an enterprise-grade retail inventory analytics and dark-store management system designed to process high-velocity stock changes across 3,732 real retail SKUs. 
 
-Read the handbook in sequential numerical order:
+The application uses a **hybrid operational architecture**:
+1. **Frontend Application**: React 18 + TypeScript + Vite + Material UI (MUI) hosted on Vercel Edge.
+2. **Database Engine**: Live Supabase PostgreSQL database executing server-side SQL queries (`ILIKE`, `COUNT(*)`, `SUM()`, `AVG()`, `GROUP BY`, and `UPDATE` mutations).
+3. **Backend Specification**: FastAPI (Python 3.11) clean architecture with SQLAlchemy 2.0, Alembic migrations, and OAuth2 JWT authentication.
 
-| Document | Title | Purpose |
-|---|---|---|
-| [`00_START_HERE.md`](./00_START_HERE.md) | Master Handbook Roadmap | Navigation & reading strategy |
-| [`01_PROJECT_OVERVIEW.md`](./01_PROJECT_OVERVIEW.md) | Business Domain & Data | Quick-commerce analytics context |
-| [`02_SYSTEM_ARCHITECTURE.md`](./02_SYSTEM_ARCHITECTURE.md) | Clean Architecture Blueprint | 3-Layer Router-Service-Repo pattern |
-| [`03_FOLDER_STRUCTURE.md`](./03_FOLDER_STRUCTURE.md) | Directory & File Sitemap | Purpose of every file in repo |
-| [`04_DATABASE_DESIGN.md`](./04_DATABASE_DESIGN.md) | Relational Schema Handbook | 6 tables, PK/FK, constraints & indexes |
-| [`05_SQL_QUERIES_EXPLAINED.md`](./05_SQL_QUERIES_EXPLAINED.md) | Advanced SQL Handbook | CTEs, RANK(), LAG(), CASE WHEN |
-| [`06_BACKEND_ARCHITECTURE.md`](./06_BACKEND_ARCHITECTURE.md) | FastAPI Engine & Dependency Injection | Request lifecycle & connection pooling |
-| [`07_AUTHENTICATION_AND_RBAC.md`](./07_AUTHENTICATION_AND_RBAC.md) | Security, JWT & RBAC | Bcrypt, PyJWT & RequireRole dependency |
-| [`08_API_DESIGN.md`](./08_API_DESIGN.md) | REST API Reference | 10 endpoints, pagination & payload schemas |
-| [`09_FRONTEND_ARCHITECTURE.md`](./09_FRONTEND_ARCHITECTURE.md) | React, Material UI & Zustand | MUI v6 theme, Zustand store, Recharts |
-| [`10_DEPLOYMENT_GUIDE.md`](./10_DEPLOYMENT_GUIDE.md) | Production Deployment | Supabase, HF Spaces Docker & Vercel |
-| [`11_CODE_WALKTHROUGH.md`](./11_CODE_WALKTHROUGH.md) | Step-by-Step Code Execution | Tracing a request from React to DB |
-| [`12_INTERVIEW_GUIDE.md`](./12_INTERVIEW_GUIDE.md) | 50 SDE Interview Q&A | Q&A across DB, SQL, FastAPI & React |
-| [`13_RESUME_GUIDE.md`](./13_RESUME_GUIDE.md) | ATS Resume Bullets & Pitches | 30s/2m/5m elevator pitches |
-| [`14_CHEATSHEET.md`](./14_CHEATSHEET.md) | 20-Minute Pre-Interview Cheat Sheet | Final revision numbers & core points |
-
----
-
-## 4. Key Numbers to Remember for Interviews
-- **3,700** SKUs (High-cardinality catalog data)
-- **11** Active Categories (Fruits & Veg, Dairy, Munchies, Cleaning, etc.)
-- **6** Relational Database Tables (`roles`, `users`, `categories`, `products`, `inventory`, `price_history`)
-- **4** User Roles (`admin`, `manager`, `analyst`, `viewer`)
-- **10** Production REST Endpoints
-- **3** System Layers (Router → Service → Repository)
-- **0.00ms** Division-by-Zero Safety via ANSI SQL `NULLIF()` and `CAST()`
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                            STOCKPULSE ARCHITECTURE                          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│   ┌─────────────────────────┐             ┌─────────────────────────────┐   │
+│   │   Vercel Static Edge    │             │   Supabase PostgreSQL DB    │   │
+│   │ (React 18 + TypeScript) │────────────>│  (3,732 Real Zepto Products)│   │
+│   └─────────────────────────┘  Direct SQL │  - Real-time Aggregations   │   │
+│                │                Queries   │  - Row Level Security (RLS) │   │
+│                │                          └─────────────────────────────┘   │
+│                │ Fallback / API Spec                                        │
+│                v                                                            │
+│   ┌─────────────────────────┐                                               │
+│   │    FastAPI Backend      │                                               │
+│   │ (Python 3.11 Clean Arch)│                                               │
+│   └─────────────────────────┘                                               │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
-## 5. Next Step
-Proceed directly to [`01_PROJECT_OVERVIEW.md`](./01_PROJECT_OVERVIEW.md) to understand the business domain and dataset normalization.
+## Project Implementation Map
+
+Below is the complete 16-module engineering handbook layout:
+
+| Module | File | Core Focus |
+| :--- | :--- | :--- |
+| **00** | [`00_START_HERE.md`](file:///c:/DISK-%20X/SQL%20PROJECT/learning/00_START_HERE.md) | Handbook Roadmap & Learning Objectives |
+| **01** | [`01_PROJECT_OVERVIEW.md`](file:///c:/DISK-%20X/SQL%20PROJECT/learning/01_PROJECT_OVERVIEW.md) | Business Problem, Core Capabilities & Scope |
+| **02** | [`02_SYSTEM_ARCHITECTURE.md`](file:///c:/DISK-%20X/SQL%20PROJECT/learning/02_SYSTEM_ARCHITECTURE.md) | 3-Layer Design, Data Flow & System Boundaries |
+| **03** | [`03_FOLDER_STRUCTURE.md`](file:///c:/DISK-%20X/SQL%20PROJECT/learning/03_FOLDER_STRUCTURE.md) | Directory Layout, File Responsibilities & Conventions |
+| **04** | [`04_DATABASE_DESIGN.md`](file:///c:/DISK-%20X/SQL%20PROJECT/learning/04_DATABASE_DESIGN.md) | Relational Schema, ER Diagram, Indexing & RLS Policies |
+| **05** | [`05_AUTHENTICATION.md`](file:///c:/DISK-%20X/SQL%20PROJECT/learning/05_AUTHENTICATION.md) | JWT Security, RBAC Perm Matrix & Session Recovery |
+| **06** | [`06_API_DESIGN.md`](file:///c:/DISK-%20X/SQL%20PROJECT/learning/06_API_DESIGN.md) | REST Endpoints, Supabase Query Contracts & Status Codes |
+| **07** | [`07_BACKEND_ARCHITECTURE.md`](file:///c:/DISK-%20X/SQL%20PROJECT/learning/07_BACKEND_ARCHITECTURE.md) | FastAPI Clean Arch, SQLAlchemy ORM & Alembic |
+| **08** | [`08_FRONTEND_ARCHITECTURE.md`](file:///c:/DISK-%20X/SQL%20PROJECT/learning/08_FRONTEND_ARCHITECTURE.md) | React 18, State Management (Zustand) & MUI System |
+| **09** | [`09_FEATURE_BREAKDOWN.md`](file:///c:/DISK-%20X/SQL%20PROJECT/learning/09_FEATURE_BREAKDOWN.md) | Dashboard, Catalog, Inventory Restock & RBAC Matrix |
+| **10** | [`10_DEPLOYMENT_GUIDE.md`](file:///c:/DISK-%20X/SQL%20PROJECT/learning/10_DEPLOYMENT_GUIDE.md) | Vercel Static Hosting, Supabase Cloud & CI/CD Pipelines |
+| **11** | [`11_CODE_WALKTHROUGH.md`](file:///c:/DISK-%20X/SQL%20PROJECT/learning/11_CODE_WALKTHROUGH.md) | Step-by-Step Execution Lifecycle of Key Workflows |
+| **12** | [`12_INTERVIEW_GUIDE.md`](file:///c:/DISK-%20X/SQL%20PROJECT/learning/12_INTERVIEW_GUIDE.md) | Technical Interview Defense & Architectural Q&A |
+| **13** | [`13_RESUME_GUIDE.md`](file:///c:/DISK-%20X/SQL%20PROJECT/learning/13_RESUME_GUIDE.md) | Resume Bullet Points Mapped to Real File Implementations |
+| **14** | [`14_PROJECT_BIBLE.md`](file:///c:/DISK-%20X/SQL%20PROJECT/learning/14_PROJECT_BIBLE.md) | Master 30-Minute Pre-Interview Revision Guide |
+| **15** | [`15_CHEATSHEET.md`](file:///c:/DISK-%20X/SQL%20PROJECT/learning/15_CHEATSHEET.md) | Quick-Reference Numbers, Formulas & Architecture Cheatsheet |
+
+---
+
+## Engineering Decisions & Credentials
+
+### Key Credentials:
+- **Master Password**: `anuraggaur001` (Active for all demo accounts)
+- **Admin**: `admin@stockpulse.io`
+- **Manager**: `manager@stockpulse.io`
+- **Analyst**: `analyst@stockpulse.io`
+- **Viewer**: `viewer@stockpulse.io`
+
+---
+
+## Common Mistakes Developers Make
+1. **Relying purely on static mock data**: Makes portfolio apps feel fake during interviews. StockPulse runs live PostgreSQL queries on Supabase with 3,732 real rows.
+2. **Neglecting Role-Based Access Control**: Exposing write/admin endpoints to viewers. StockPulse implements 4-tier strict RBAC at both UI and route guard levels.
+
+---
+
+## Key Takeaways
+- Read the handbook sequentially from `01_PROJECT_OVERVIEW.md` to `15_CHEATSHEET.md`.
+- Use [`14_PROJECT_BIBLE.md`](file:///c:/DISK-%20X/SQL%20PROJECT/learning/14_PROJECT_BIBLE.md) for 30-minute pre-interview review sessions.

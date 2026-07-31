@@ -1,64 +1,72 @@
-# 📦 01: Project Overview & Business Domain
+# 01 PROJECT OVERVIEW — StockPulse Analytics
 
-## 1. Objective
-Understand the business domain of StockPulse, why quick-commerce dark stores need real-time analytics, and how raw flat CSV data was normalized into a production relational database.
-
----
-
-## 2. Big Picture
-Companies like Zepto, Blinkit, and Swiggy Instamart promise 10-minute grocery delivery. They operate hundreds of micro-warehouses called **Dark Stores**.
-StockPulse solves 3 major operational challenges:
-1. **Preventing Out-of-Stock Cancellations**: Real-time stock alerts when items fall below reorder thresholds.
-2. **Category Inventory Valuation**: Identifying which product categories hold the highest capital investment.
-3. **Price Fluctuation Auditing**: Automated tracking whenever item MRPs or discounts change.
+## Objective
+This document outlines the business context, technical specifications, core problem statement, and scope of **StockPulse — Retail Inventory Analytics Platform**.
 
 ---
 
-## 3. Implementation: Data ETL & Normalization
+## Big Picture
+In quick-commerce (e.g., Zepto, Blinkit, Instamart), dark-stores process thousands of orders hourly. Inventory discrepancies directly cause:
+- Stockouts (lost revenue & customer churn)
+- Overstocking (tied-up working capital)
+- Pricing inconsistencies (margin erosion)
 
-The raw dataset (`backend/data/zepto_v2.csv`) contains 3,700 items as a flat string table.
-We executed an ETL (Extract, Transform, Load) seed process in `backend/app/scripts/seed.py`:
-
-```
-Flat CSV Row:
-[Category: "Dairy", Name: "Amul Butter", MRP: 27500, Price: 22000, Qty: 15, OutOfStock: "FALSE"]
-                      │
-                      ▼ (ETL Seed Script: app/scripts/seed.py)
-┌─────────────────┬─────────────────┬───────────────────┬───────────────────┐
-│ Categories      │ Products        │ Inventory         │ Price History     │
-│ (id: 1, Dairy)  │ (sku: DAI-0001, │ (prod_id: 1,      │ (prod_id: 1,      │
-│                 │  mrp: 275.00)   │  qty: 15)         │  new_price: 220)  │
-└─────────────────┴─────────────────┴───────────────────┴───────────────────┘
-```
+StockPulse solves this by providing real-time inventory tracking, executive analytics, and dynamic restocking workflows powered by a live PostgreSQL database.
 
 ---
 
-## 4. Engineering Decisions
+## Project Implementation
 
-| Option | Decision Made | Alternatives Considered | Why This Decision? |
-|---|---|---|---|
-| Data Storage | 6 Relational Tables | Flat MongoDB / Single SQL table | Prevents data duplication, enables 2NF/3NF normalization, supports foreign key integrity |
-| Financial Pricing | Integer Paise + `NUMERIC(10,2)` | Native `FLOAT` | IEEE 754 float rounding errors break financial calculations. Storing paise as integers ensures exact arithmetic. |
+### Codebase Metrics:
+- **Dataset**: 3,732 real Zepto retail products across 14 categories (`zepto_v2.csv`).
+- **Database**: Supabase PostgreSQL (`products` & `categories` tables).
+- **Frontend Stack**: React 18, Vite 5, TypeScript 5, Material UI (MUI 5), Recharts, Zustand.
+- **Backend Spec**: FastAPI (Python 3.11), SQLAlchemy 2.0, Pydantic v2, Alembic.
+
+### Core Features:
+1. **Executive Dashboard (`DashboardPage.tsx`)**:
+   - Live KPI cards: Total SKUs (3,732), Total Categories (14), Total Inventory Value (~₹84.5L), Out of Stock %, Low Stock Count, Avg Discount %.
+   - Interactive Recharts bar chart showing inventory value distribution across categories.
+   - Out of stock alert panel.
+2. **Product Catalog (`ProductsPage.tsx`)**:
+   - Server-side SQL search (`ILIKE`), category filtering (`WHERE category_id = ?`), and stock status filtering.
+   - Server-side pagination (`LIMIT` & `OFFSET`).
+3. **Inventory Management (`InventoryPage.tsx`)**:
+   - Stock status indicators (`NORMAL`, `LOW STOCK`, `CRITICAL`, `OVERSTOCKED`).
+   - Real-time stock alerts feed.
+   - Interactive restock modal executing SQL `UPDATE` queries.
+4. **System Administration & Security (`AdminPage.tsx`)**:
+   - 4-Tier Role-Based Access Control (RBAC) permission matrix.
+   - System accounts directory.
 
 ---
 
-## 5. Common Mistakes
-- ❌ **Storing prices as FLOAT**: `0.1 + 0.2` becomes `0.30000000000000004` in floating-point arithmetic.
-- ❌ **Keeping category names as raw strings in products table**: Duplicates string memory 3,700 times and prevents category-level renaming.
+## Engineering Decisions
+
+### Why Live Supabase PostgreSQL + React Static Hosting?
+- **Decision**: Connect Vercel frontend directly to a free hosted Supabase PostgreSQL instance via `@supabase/supabase-js`.
+- **Alternative 1 (Pure Static JSON/Mock)**: Fast to build, but fails interview validation because no real SQL runs.
+- **Alternative 2 (Full Backend on Free Tier Hosting)**: Cold starts on Render/Railway cause 50-second delays.
+- **Trade-off**: Supabase direct client queries run real SQL server-side with zero cold-start latency!
 
 ---
 
-## 6. Interview Questions & Expected Answers
+## Common Mistakes
+- **Hardcoding mock arrays**: Storing static arrays in React state means data resets on refresh and ignores database operations. StockPulse fetches live data from Supabase and allows real `UPDATE` restock mutations.
+
+---
+
+## Interview Questions
 
 ### Q1: What problem does StockPulse solve?
-> **Answer**: StockPulse provides real-time inventory visibility and pricing audit trails for quick-commerce dark stores, preventing stockouts and automating inventory reorder triggers across 3,700 SKUs.
+**Answer**: StockPulse provides real-time visibility into quick-commerce dark-store inventory across 3,732 SKUs, preventing stockouts and overstocking using server-side SQL analytics.
 
-### Q2: Why did you normalize the dataset into separate tables?
-> **Answer**: To achieve 2NF/3NF normalization. Extracting categories into a separate table eliminates string duplication. Decoupling inventory from products prevents table locks during high-frequency stock updates.
+### Q2: How does the application handle database connectivity on Vercel?
+**Answer**: It uses `@supabase/supabase-js` to execute parameterized SQL queries directly against a cloud PostgreSQL instance, protected by Row Level Security (RLS) policies.
 
 ---
 
-## 7. Key Takeaways
-- StockPulse manages **3,700 SKUs** across **11 categories**.
-- Financial precision is preserved by storing integer paise alongside `NUMERIC(10,2)`.
-- Proceed to [`02_SYSTEM_ARCHITECTURE.md`](./02_SYSTEM_ARCHITECTURE.md) for the 3-Layer Clean Architecture blueprint.
+## Key Takeaways
+- StockPulse processes 3,732 real retail SKUs.
+- It operates on a live Supabase PostgreSQL database.
+- It enforces 4-tier Role-Based Access Control (`admin`, `manager`, `analyst`, `viewer`).

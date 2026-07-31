@@ -1,41 +1,57 @@
-# 🚀 10: Production Deployment Handbook
+# 10 DEPLOYMENT GUIDE — Vercel & Supabase Production Setup
 
-## 1. Objective
-Understand how StockPulse is deployed across Supabase (PostgreSQL), Hugging Face Spaces (Dockerized Backend), and Vercel (React Frontend).
-
----
-
-## 2. Big Picture Architecture
-
-```
-[ Vercel (Frontend SPA) ] ──(HTTPS)──> [ Hugging Face Spaces (Backend Docker) ] ──(SSL)──> [ Supabase (PostgreSQL) ]
-```
+## Objective
+This document provides step-by-step instructions for deploying StockPulse to production using **Vercel** (frontend static hosting) and **Supabase Cloud** (managed PostgreSQL database), including CI/CD configuration and environment variable setup.
 
 ---
 
-## 3. Deployment Configurations
+## Big Picture
+StockPulse relies on a modern serverless deployment pipeline:
+1. **Source Code**: Hosted on GitHub (`anuraggaur29/Retail-Inventory-Analytics-Platform`).
+2. **Frontend Deployment**: Automated Vercel build triggered on every `git push origin main`.
+3. **Database Hosting**: Cloud-hosted PostgreSQL instance on Supabase Cloud.
 
-### A. Database (Supabase PostgreSQL)
-- **Connection URI**: `postgresql://postgres.[REF]:[PASS]@aws-0-ap-south-1.pooler.supabase.com:5432/postgres`
-- **Commands**:
-  ```bash
-  alembic upgrade head
-  python -m app.scripts.seed
-  ```
+---
 
-### B. Backend Dockerfile (`backend/Dockerfile`)
-```dockerfile
-FROM python:3.10-slim
-WORKDIR /app
-RUN apt-get update && apt-get install -y gcc libpq-dev && rm -rf /var/lib/apt/lists/*
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-COPY . .
-EXPOSE 7860
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7860"]
+## Deployment Architecture Pipeline
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           DEPLOYMENT PIPELINE                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│   Developer Push         GitHub Repository           Vercel Production      │
+│  ┌──────────────┐       ┌─────────────────┐        ┌───────────────────┐    │
+│  │ git push     │──────>│ Main Branch     │───────>│ Automatic Build   │    │
+│  │ origin main  │       │ (GitHub Webhook)│        │ tsc && vite build │    │
+│  └──────────────┘       └─────────────────┘        └───────────────────┘    │
+│                                                              │              │
+│                                                              v              │
+│                                                    Vercel Edge Global CDN   │
+│                                                    retail-inventory-...app  │
+│                                                              │              │
+│                                                              │ Live SQL     │
+│                                                              v              │
+│                                                    Supabase PostgreSQL DB   │
+│                                                    ap-south-1 (3732 rows)   │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### C. Frontend Vercel Config (`frontend/vercel.json`)
+---
+
+## Step-by-Step Deployment Instructions
+
+### 1. Database Setup (Supabase Cloud)
+1. Sign up at [supabase.com](https://supabase.com) and create a new project named `stockpulse` in region `ap-south-1` (Mumbai).
+2. Open **SQL Editor** and run the DDL schema script from [`04_DATABASE_DESIGN.md`](file:///c:/DISK-%20X/SQL%20PROJECT/learning/04_DATABASE_DESIGN.md).
+3. Execute the data import script from local machine:
+   ```bash
+   node scripts/import_to_supabase.js
+   ```
+   *Output: Inserts 14 categories and 3,732 product rows into PostgreSQL.*
+
+### 2. Frontend SPA Routing Fix (`frontend/vercel.json`)
+To prevent HTTP 404 errors when refreshing client-side routes like `/products` or `/inventory`, add rewrite rules to `vercel.json`:
 ```json
 {
   "rewrites": [
@@ -44,10 +60,25 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7860"]
 }
 ```
 
+### 3. Vercel Environment Variables Configuration
+Go to **Vercel Dashboard → Settings → Environment Variables** and add:
+
+| Variable Key | Value | Scope |
+| :--- | :--- | :--- |
+| `VITE_SUPABASE_URL` | `https://bhotkxonwfjzshleygmn.supabase.co` | Production, Preview |
+| `VITE_SUPABASE_ANON_KEY` | `sb_publishable_CuywkU_kh21kkRp2sj-QUA_u2e7dDJ9` | Production, Preview |
+
 ---
 
-## 4. Key Takeaways
-- **Supabase** handles managed database pooling.
-- **HF Spaces Docker SDK** serves backend API on port 7860.
-- **Vercel** serves SPA with client-side route rewrites.
-- Proceed to [`11_CODE_WALKTHROUGH.md`](./11_CODE_WALKTHROUGH.md).
+## Engineering Decisions
+
+### Why Vercel Rewrites for SPA Routing?
+- **Problem**: When a user navigates directly to `https://app.vercel.app/inventory`, Vercel looks for a static file named `/inventory/index.html` on the server and returns 404.
+- **Solution**: The `vercel.json` rewrite rule catches all incoming requests and serves `/index.html`, allowing React Router v6 to parse the browser URL client-side.
+
+---
+
+## Key Takeaways
+- Vercel handles static frontend distribution over Edge CDN.
+- Supabase Cloud hosts the production PostgreSQL database.
+- `vercel.json` rewrites prevent 404 errors on browser page reloads.
