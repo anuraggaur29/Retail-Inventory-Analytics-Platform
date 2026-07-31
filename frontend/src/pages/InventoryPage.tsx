@@ -29,18 +29,6 @@ import { useAuthStore } from '../store/authStore';
 
 export const InventoryPage: React.FC = () => {
   const { user } = useAuthStore();
-  const [inventory, setInventory] = useState<InventoryItem[]>([]);
-  const [alerts, setAlerts] = useState<StockAlert[]>([]);
-  const [meta, setMeta] = useState<PaginatedMeta>({ total: 0, page: 1, page_size: 20, total_pages: 1 });
-  const [statusFilter, setStatusFilter] = useState<string>('');
-  const [page, setPage] = useState(0); // MUI TablePagination 0-indexed
-  const [rowsPerPage, setRowsPerPage] = useState(20);
-  const [loading, setLoading] = useState(true);
-
-  // Restock Dialog State
-  const [restockProduct, setRestockProduct] = useState<InventoryItem | null>(null);
-  const [restockQty, setRestockQty] = useState(50);
-  const [snackbarMsg, setSnackbarMsg] = useState('');
 
   const mockInventoryItems: InventoryItem[] = [
     { product_id: 1, product_name: 'Fresh Shimla Apple 1kg', sku: 'FRU-0001', category_name: 'Fruits & Vegetables', available_quantity: 120, reorder_level: 15, is_out_of_stock: false, stock_status: 'Normal', selling_price: 153, inventory_value: 18360, last_restocked_at: new Date().toISOString() },
@@ -49,15 +37,32 @@ export const InventoryPage: React.FC = () => {
     { product_id: 4, product_name: 'Surf Excel Easy Wash Detergent 1kg', sku: 'CLN-0004', category_name: 'Cleaning Essentials', available_quantity: 180, reorder_level: 25, is_out_of_stock: false, stock_status: 'Overstocked', selling_price: 123.2, inventory_value: 22176, last_restocked_at: new Date().toISOString() },
   ];
 
+  const mockAlerts: StockAlert[] = [
+    { product_id: 3, product_name: 'Lays Magic Masala Chips 50g', sku: 'MNC-0003', category_name: 'Munchies & Snacks', available_quantity: 0, reorder_level: 20, alert_type: 'OUT_OF_STOCK', selling_price: 18 },
+    { product_id: 2, product_name: 'Amul Taaza Toned Milk 1L', sku: 'DAI-0002', category_name: 'Dairy & Eggs', available_quantity: 8, reorder_level: 10, alert_type: 'LOW_STOCK', selling_price: 66.5 },
+  ];
+
+  const [inventory, setInventory] = useState<InventoryItem[]>(mockInventoryItems);
+  const [alerts, setAlerts] = useState<StockAlert[]>(mockAlerts);
+  const [meta, setMeta] = useState<PaginatedMeta>({ total: 3700, page: 1, page_size: 20, total_pages: 185 });
+  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [page, setPage] = useState(0); // MUI TablePagination 0-indexed
+  const [rowsPerPage, setRowsPerPage] = useState(20);
+  const [loading, setLoading] = useState(false);
+  const [restockProduct, setRestockProduct] = useState<InventoryItem | null>(null);
+  const [restockQty, setRestockQty] = useState(50);
+  const [snackbarMsg, setSnackbarMsg] = useState('');
+
   const fetchAlerts = async () => {
     try {
       const res = await api.get('/inventory/alerts');
-      setAlerts(res.data.data);
+      if (res.data && Array.isArray(res.data.data)) {
+        setAlerts(res.data.data);
+      } else {
+        setAlerts(mockAlerts);
+      }
     } catch (e) {
-      setAlerts([
-        { product_id: 3, product_name: 'Lays Magic Masala Chips 50g', sku: 'MNC-0003', category_name: 'Munchies & Snacks', available_quantity: 0, reorder_level: 20, alert_type: 'OUT_OF_STOCK', selling_price: 18 },
-        { product_id: 2, product_name: 'Amul Taaza Toned Milk 1L', sku: 'DAI-0002', category_name: 'Dairy & Eggs', available_quantity: 8, reorder_level: 10, alert_type: 'LOW_STOCK', selling_price: 66.5 },
-      ]);
+      setAlerts(mockAlerts);
     }
   };
 
@@ -68,8 +73,13 @@ export const InventoryPage: React.FC = () => {
       if (statusFilter) params.stock_status = statusFilter;
 
       const res = await api.get('/inventory', { params });
-      setInventory(res.data.data);
-      setMeta(res.data.meta);
+      if (res.data && Array.isArray(res.data.data)) {
+        setInventory(res.data.data);
+        if (res.data.meta) setMeta(res.data.meta);
+      } else {
+        setInventory(mockInventoryItems);
+        setMeta({ total: 3700, page: page + 1, page_size: rowsPerPage, total_pages: 185 });
+      }
     } catch (e) {
       setInventory(mockInventoryItems);
       setMeta({ total: 3700, page: page + 1, page_size: rowsPerPage, total_pages: 185 });

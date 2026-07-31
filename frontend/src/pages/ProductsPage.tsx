@@ -27,17 +27,6 @@ import { api } from '../services/api';
 import { Product, Category, PaginatedMeta } from '../types';
 
 export const ProductsPage: React.FC = () => {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [meta, setMeta] = useState<PaginatedMeta>({ total: 0, page: 1, page_size: 20, total_pages: 1 });
-  
-  const [search, setSearch] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<number | ''>('');
-  const [inStockOnly, setInStockOnly] = useState<string>('all');
-  const [page, setPage] = useState(0); // MUI TablePagination is 0-indexed
-  const [rowsPerPage, setRowsPerPage] = useState(20);
-  const [loading, setLoading] = useState(true);
-
   const mockProducts: Product[] = [
     { id: 1, sku: 'FRU-0001', name: 'Fresh Shimla Apple 1kg', category_name: 'Fruits & Vegetables', mrp: 180, discount_percent: 15, selling_price: 153, weight_gms: 1000, quantity_desc: '1 kg', available_quantity: 120, is_out_of_stock: false },
     { id: 2, sku: 'DAI-0002', name: 'Amul Taaza Toned Milk 1L', category_name: 'Dairy & Eggs', mrp: 70, discount_percent: 5, selling_price: 66.5, weight_gms: 1000, quantity_desc: '1 L', available_quantity: 85, is_out_of_stock: false },
@@ -46,17 +35,35 @@ export const ProductsPage: React.FC = () => {
     { id: 5, sku: 'DRK-0005', name: 'Coca-Cola Zero Sugar 750ml', category_name: 'Cold Drinks & Juices', mrp: 45, discount_percent: 10, selling_price: 40.5, weight_gms: 750, quantity_desc: '750 ml', available_quantity: 210, is_out_of_stock: false },
   ];
 
+  const mockCategories: Category[] = [
+    { id: 1, name: 'Fruits & Vegetables', slug: 'fruits-veg', product_count: 480 },
+    { id: 2, name: 'Dairy & Eggs', slug: 'dairy-eggs', product_count: 350 },
+    { id: 3, name: 'Munchies & Snacks', slug: 'munchies', product_count: 510 },
+    { id: 4, name: 'Cold Drinks & Juices', slug: 'cold-drinks', product_count: 290 },
+    { id: 5, name: 'Cleaning Essentials', slug: 'cleaning', product_count: 210 },
+  ];
+
+  const [products, setProducts] = useState<Product[]>(mockProducts);
+  const [categories, setCategories] = useState<Category[]>(mockCategories);
+  const [meta, setMeta] = useState<PaginatedMeta>({ total: 3700, page: 1, page_size: 20, total_pages: 185 });
+  
+  const [search, setSearch] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<number | ''>('');
+  const [inStockOnly, setInStockOnly] = useState<string>('all');
+  const [page, setPage] = useState(0); // MUI TablePagination is 0-indexed
+  const [rowsPerPage, setRowsPerPage] = useState(20);
+  const [loading, setLoading] = useState(false);
+
   const fetchCategories = async () => {
     try {
       const res = await api.get('/categories');
-      setCategories(res.data.data);
+      if (res.data && Array.isArray(res.data.data)) {
+        setCategories(res.data.data);
+      } else {
+        setCategories(mockCategories);
+      }
     } catch (e) {
-      setCategories([
-        { id: 1, name: 'Fruits & Vegetables', slug: 'fruits-veg', product_count: 480 },
-        { id: 2, name: 'Dairy & Eggs', slug: 'dairy-eggs', product_count: 350 },
-        { id: 3, name: 'Munchies & Snacks', slug: 'munchies', product_count: 510 },
-        { id: 4, name: 'Cold Drinks & Juices', slug: 'cold-drinks', product_count: 290 },
-      ]);
+      setCategories(mockCategories);
     }
   };
 
@@ -70,8 +77,13 @@ export const ProductsPage: React.FC = () => {
       if (inStockOnly === 'false') params.in_stock = false;
 
       const res = await api.get('/products', { params });
-      setProducts(res.data.data);
-      setMeta(res.data.meta);
+      if (res.data && Array.isArray(res.data.data)) {
+        setProducts(res.data.data);
+        if (res.data.meta) setMeta(res.data.meta);
+      } else {
+        setProducts(mockProducts);
+        setMeta({ total: 3700, page: page + 1, page_size: rowsPerPage, total_pages: 185 });
+      }
     } catch (e) {
       setProducts(mockProducts);
       setMeta({ total: 3700, page: page + 1, page_size: rowsPerPage, total_pages: 185 });
