@@ -39,10 +39,6 @@ import { api } from '../services/api';
 import { DashboardSummary } from '../types';
 
 export const DashboardPage: React.FC = () => {
-  const [data, setData] = useState<DashboardSummary | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
   const mockDashboardData: DashboardSummary = {
     kpis: {
       total_products: 3700,
@@ -68,17 +64,22 @@ export const DashboardPage: React.FC = () => {
     ],
   };
 
+  const [data, setData] = useState<DashboardSummary>(mockDashboardData);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
   const fetchDashboardData = async () => {
-    setLoading(true);
-    setError('');
     try {
       const res = await api.get('/analytics/dashboard');
-      setData(res.data.data);
+      if (res.data && res.data.data && res.data.data.kpis) {
+        setData(res.data.data);
+      } else {
+        setData(mockDashboardData);
+      }
     } catch (err: any) {
-      // Use seamless mock fallback data for Vercel static preview
       setData(mockDashboardData);
-      setError('');
     } finally {
+      setError('');
       setLoading(false);
     }
   };
