@@ -107,6 +107,12 @@ export const InventoryPage: React.FC = () => {
         </Typography>
       </Box>
 
+      {user?.role_name === 'analyst' && (
+        <Alert severity="info" sx={{ mb: 3, border: '1px solid #0284c7' }}>
+          <strong>Analyst Mode (Read-Only)</strong>: You are viewing inventory analytics and alerts. Restock actions and inventory modifications are restricted to Admin and Manager roles.
+        </Alert>
+      )}
+
       {/* Stock Alert Cards */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={6}>

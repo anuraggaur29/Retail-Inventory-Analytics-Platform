@@ -6,6 +6,7 @@ import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { ProductsPage } from './pages/ProductsPage';
 import { InventoryPage } from './pages/InventoryPage';
+import { AdminPage } from './pages/AdminPage';
 
 export const App: React.FC = () => {
   return (
@@ -16,7 +17,7 @@ export const App: React.FC = () => {
         <Route
           path="/"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['admin', 'manager', 'analyst', 'viewer']}>
               <Layout>
                 <DashboardPage />
               </Layout>
@@ -27,7 +28,7 @@ export const App: React.FC = () => {
         <Route
           path="/products"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['admin', 'manager', 'analyst', 'viewer']}>
               <Layout>
                 <ProductsPage />
               </Layout>
@@ -38,9 +39,20 @@ export const App: React.FC = () => {
         <Route
           path="/inventory"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['admin', 'manager', 'analyst']}>
               <Layout>
                 <InventoryPage />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <Layout>
+                <AdminPage />
               </Layout>
             </ProtectedRoute>
           }

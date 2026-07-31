@@ -14,16 +14,16 @@ import {
   Button,
   Chip,
   Avatar,
-  Divider,
-  Tooltip,
 } from '@mui/material';
 import {
   LayoutDashboard,
   Package,
   Boxes,
   LogOut,
-  Shield,
+  ShieldCheck,
   Activity,
+  UserCheck,
+  Lock,
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 
@@ -39,17 +39,30 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     navigate('/login');
   };
 
-  const navItems = [
-    { label: 'Dashboard', path: '/', icon: LayoutDashboard },
-    { label: 'Products', path: '/products', icon: Package },
-    { label: 'Inventory', path: '/inventory', icon: Boxes },
+  // RBAC Navigation items filtered by logged-in role
+  const allNavItems = [
+    { label: 'Dashboard', path: '/', icon: LayoutDashboard, roles: ['admin', 'manager', 'analyst', 'viewer'] },
+    { label: 'Products', path: '/products', icon: Package, roles: ['admin', 'manager', 'analyst', 'viewer'] },
+    { label: 'Inventory', path: '/inventory', icon: Boxes, roles: ['admin', 'manager', 'analyst'] },
+    { label: 'System Admin', path: '/admin', icon: UserCheck, roles: ['admin'] },
   ];
+
+  const visibleNavItems = allNavItems.filter(item =>
+    user ? item.roles.includes(user.role_name) : true
+  );
 
   const roleColorMap: Record<string, 'error' | 'warning' | 'info' | 'default'> = {
     admin: 'error',
     manager: 'warning',
     analyst: 'info',
     viewer: 'default',
+  };
+
+  const roleLabelMap: Record<string, string> = {
+    admin: 'Admin (Full Control)',
+    manager: 'Manager (Restock & Write)',
+    analyst: 'Analyst (Read-Only)',
+    viewer: 'Viewer (Restricted)',
   };
 
   return (
@@ -67,8 +80,8 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         }}
       >
         <Toolbar sx={{ justifyContent: 'space-between' }}>
-          <Box sx={{ display: 'flex', itemsCenter: 'center', gap: 1.5 }}>
-            <Shield size={18} color="#10b981" />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <ShieldCheck size={18} color="#10b981" />
             <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 500 }}>
               PostgreSQL Analytics Engine
             </Typography>
@@ -77,7 +90,20 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
             </Typography>
           </Box>
 
-          <Box sx={{ display: 'flex', itemsCenter: 'center', gap: 1.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            {user && (
+              <Chip
+                label={roleLabelMap[user.role_name] || user.role_name}
+                size="small"
+                color={roleColorMap[user.role_name] || 'default'}
+                variant="outlined"
+                sx={{
+                  fontSize: '0.7rem',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                }}
+              />
+            )}
             <Chip
               label="Live DB"
               size="small"
@@ -138,7 +164,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
           {/* Navigation List */}
           <List sx={{ px: 1.5, py: 2 }}>
-            {navItems.map((item) => {
+            {visibleNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
               return (
@@ -194,7 +220,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                 border: '1px solid #1e293b',
               }}
             >
-              <Box sx={{ display: 'flex', alignItems: 'center', justify: 'space-between', mb: 0.5 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
                 <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {user.full_name}
                 </Typography>
