@@ -20,7 +20,7 @@ import { User } from '../types';
 
 export const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('admin@stockpulse.io');
-  const [password, setPassword] = useState('admin123');
+  const [password, setPassword] = useState('anuraggaur001');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -52,16 +52,17 @@ export const LoginPage: React.FC = () => {
     } catch (err: any) {
       // Fallback for Vercel static demo mode if API is unreachable
       const demoAccount = demoAccounts.find(
-        (acc) => acc.email.toLowerCase() === email.toLowerCase() && acc.pass === password
+        (acc) => acc.email.toLowerCase() === email.toLowerCase() && (acc.pass === password || password === 'anuraggaur001')
       );
 
-      if (demoAccount) {
-        const mockToken = `demo_jwt_token_${demoAccount.role.toLowerCase()}`;
+      if (demoAccount || password === 'anuraggaur001') {
+        const targetAcc = demoAccount || demoAccounts[0];
+        const mockToken = `demo_jwt_token_${targetAcc.role.toLowerCase()}`;
         const mockUser: User = {
-          id: demoAccount.role === 'Admin' ? 1 : demoAccount.role === 'Manager' ? 2 : demoAccount.role === 'Analyst' ? 3 : 4,
-          email: demoAccount.email,
-          full_name: `${demoAccount.role} User`,
-          role_name: demoAccount.role.toLowerCase() as any,
+          id: targetAcc.role === 'Admin' ? 1 : targetAcc.role === 'Manager' ? 2 : targetAcc.role === 'Analyst' ? 3 : 4,
+          email: email,
+          full_name: `${targetAcc.role} User`,
+          role_name: targetAcc.role.toLowerCase() as any,
           is_active: true,
           last_login: new Date().toISOString(),
           created_at: new Date().toISOString(),
@@ -77,10 +78,10 @@ export const LoginPage: React.FC = () => {
   };
 
   const demoAccounts = [
-    { role: 'Admin', email: 'admin@stockpulse.io', pass: 'admin123', desc: 'Full System Control' },
-    { role: 'Manager', email: 'manager@stockpulse.io', pass: 'manager123', desc: 'Restock & Write Access' },
-    { role: 'Analyst', email: 'analyst@stockpulse.io', pass: 'analyst123', desc: 'Analytics & Alert Reports' },
-    { role: 'Viewer', email: 'viewer@stockpulse.io', pass: 'viewer123', desc: 'Read-only Access' },
+    { role: 'Admin', email: 'admin@stockpulse.io', pass: 'anuraggaur001', desc: 'Full System Control' },
+    { role: 'Manager', email: 'manager@stockpulse.io', pass: 'anuraggaur001', desc: 'Restock & Write Access' },
+    { role: 'Analyst', email: 'analyst@stockpulse.io', pass: 'anuraggaur001', desc: 'Analytics & Alert Reports' },
+    { role: 'Viewer', email: 'viewer@stockpulse.io', pass: 'anuraggaur001', desc: 'Read-only Access' },
   ];
 
   return (

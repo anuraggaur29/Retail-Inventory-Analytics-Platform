@@ -42,12 +42,12 @@ Engineered following **Clean Architecture (Router → Service → Repository)**,
 
 Use any of the pre-configured accounts below to explore different RBAC permission levels:
 
-| Role | Email | Password | Access Privileges |
-|---|---|---|---|
-| **Admin** | `admin@stockpulse.io` | `admin123` | Full administrative control & write access |
-| **Manager** | `manager@stockpulse.io` | `manager123` | Stock restocking, product updates & management |
-| **Analyst** | `analyst@stockpulse.io` | `analyst123` | Executive analytics dashboard & stock alert feeds |
-| **Viewer** | `viewer@stockpulse.io` | `viewer123` | Read-only catalog & stock visibility |
+| Role | Email | Password | Access Scope |
+| :--- | :--- | :--- | :--- |
+| **Admin** | `admin@stockpulse.io` | `anuraggaur001` | Full administrative control & write access |
+| **Manager** | `manager@stockpulse.io` | `anuraggaur001` | Inventory restocking & catalog modifications |
+| **Analyst** | `analyst@stockpulse.io` | `anuraggaur001` | Read-only analytics & alert monitoring |
+| **Viewer** | `viewer@stockpulse.io` | `anuraggaur001` | Executive high-level KPI view |
 
 ---
 

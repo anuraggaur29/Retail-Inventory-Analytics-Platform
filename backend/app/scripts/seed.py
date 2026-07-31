@@ -89,7 +89,7 @@ def seed_users(db: Session, roles: dict[str, Role]) -> None:
         {
             "email": "admin@stockpulse.io",
             "full_name": "Admin User",
-            "password": "admin123",
+            "password": "anuraggaur001",
             "role": "admin",
         },
         {
